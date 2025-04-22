@@ -3,41 +3,45 @@ import { parseModule } from "esprima";
 import type { PackageInfoProvider } from "./packageInfoProvider";
 
 export interface ImportResult {
-  importName: string
-  range: vscode.Range
-  existsOnNpm: boolean
-  packageInfo: PackageInfo | null
-  importType: "import" | "require"
+  importName: string;
+  range: vscode.Range;
+  existsOnNpm: boolean;
+  packageInfo: PackageInfo | null;
+  importType: "import" | "require";
 }
 
 export interface PackageInfo {
-  name: string
-  version: string
-  description: string
-  homepage: string
-  repository: string
-  license: string
-  author: string
-  keywords: string[]
-  downloads: number
+  name: string;
+  version: string;
+  description: string;
+  homepage: string;
+  repository: string;
+  license: string;
+  author: string;
+  keywords: string[];
+  downloads: number;
 }
 
 interface ImportCache {
-  results: ImportResult[]
-  timestamp: number
+  results: ImportResult[];
+  timestamp: number;
 }
 
 export class ImportValidator {
   private documentImportsCache: Map<string, ImportCache> = new Map();
-  private importExistenceCache: Map<string, { exists: boolean; timestamp: number }> = new Map();
+  private importExistenceCache: Map<
+    string,
+    { exists: boolean; timestamp: number }
+  > = new Map();
   private circularDependencyDetector: Set<string> = new Set();
   private processingTimeout = 5000; // 5 seconds timeout for processing a file
-  private extensionId = "npm-import-validator";
 
   constructor(private packageInfoProvider: PackageInfoProvider) {}
 
   // Validate imports in a document
-  async validateDocument(document: vscode.TextDocument): Promise<ImportResult[]> {
+  async validateDocument(
+    document: vscode.TextDocument
+  ): Promise<ImportResult[]> {
     const documentUri = document.uri.toString();
     const config = vscode.workspace.getConfiguration("npmImportValidator");
     const cacheTimeout = config.get<number>("cacheTimeout") || 86400; // Default 24 hours
@@ -66,7 +70,7 @@ export class ImportValidator {
 
       // Skip ignored packages
       const ignoredPackages = config.get<string[]>("ignoredPackages") || [];
-      if (ignoredPackages.includes(importName)) {
+      if (this.shouldIgnorePackage(importName, ignoredPackages)) {
         continue;
       }
 
@@ -82,7 +86,9 @@ export class ImportValidator {
         if (now - cache.timestamp < cacheTimeout * 1000) {
           existsOnNpm = cache.exists;
           if (existsOnNpm) {
-            packageInfo = await this.packageInfoProvider.getPackageInfo(importName);
+            packageInfo = await this.packageInfoProvider.getPackageInfo(
+              importName
+            );
           }
         }
       }
@@ -92,23 +98,35 @@ export class ImportValidator {
           // Set timeout for package info retrieval
           const timeoutPromise = new Promise<null>((_, reject) => {
             setTimeout(
-              () => reject(new Error(`Timeout getting package info for ${importName}`)),
-              this.processingTimeout,
+              () =>
+                reject(
+                  new Error(`Timeout getting package info for ${importName}`)
+                ),
+              this.processingTimeout
             );
           });
 
           // Get package info with timeout
-          packageInfo = await Promise.race([this.packageInfoProvider.getPackageInfo(importName), timeoutPromise]);
+          packageInfo = await Promise.race([
+            this.packageInfoProvider.getPackageInfo(importName),
+            timeoutPromise,
+          ]);
 
           existsOnNpm = packageInfo !== null;
 
           // Cache the result
-          this.importExistenceCache.set(importName, { exists: existsOnNpm, timestamp: now });
+          this.importExistenceCache.set(importName, {
+            exists: existsOnNpm,
+            timestamp: now,
+          });
         } catch (error) {
           console.error(`Error validating import ${importName}:`, error);
           // Assume it doesn't exist if there's an error
           existsOnNpm = false;
-          this.importExistenceCache.set(importName, { exists: false, timestamp: now });
+          this.importExistenceCache.set(importName, {
+            exists: false,
+            timestamp: now,
+          });
         }
       }
 
@@ -127,6 +145,30 @@ export class ImportValidator {
     return results;
   }
 
+  // Check if a package should be ignored based on configuration
+  private shouldIgnorePackage(
+    packageName: string,
+    ignoredPackages: string[]
+  ): boolean {
+    // Check exact matches
+    if (ignoredPackages.includes(packageName)) {
+      return true;
+    }
+
+    // Check wildcard patterns
+    for (const pattern of ignoredPackages) {
+      if (pattern.includes("*")) {
+        const regexPattern = pattern.replace(/\./g, "\\.").replace(/\*/g, ".*");
+
+        if (new RegExp(`^${regexPattern}$`).test(packageName)) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
   // Check if an import is a local/relative import
   private isLocalImport(importPath: string): boolean {
     // Get configuration
@@ -141,7 +183,10 @@ export class ImportValidator {
     // Check for common path aliases
     if (importPath.match(/^@[a-zA-Z0-9_-]+/)) {
       // Skip checking scoped packages like @babel/core
-      if (importPath.includes("/") && !customAliases.some((alias) => importPath.startsWith(alias))) {
+      if (
+        importPath.includes("/") &&
+        !customAliases.some((alias) => importPath.startsWith(alias))
+      ) {
         return false;
       }
       return true;
@@ -168,11 +213,17 @@ export class ImportValidator {
   }
 
   // Extract imports from a document
-  private extractImportsFromDocument(
-    document: vscode.TextDocument,
-  ): { importName: string; range: vscode.Range; importType: "import" | "require" }[] {
+  private extractImportsFromDocument(document: vscode.TextDocument): {
+    importName: string;
+    range: vscode.Range;
+    importType: "import" | "require";
+  }[] {
     const text = document.getText();
-    const imports: { importName: string; range: vscode.Range; importType: "import" | "require" }[] = [];
+    const imports: {
+      importName: string;
+      range: vscode.Range;
+      importType: "import" | "require";
+    }[] = [];
 
     try {
       // Extract ES6 imports
@@ -191,13 +242,22 @@ export class ImportValidator {
   private extractES6Imports(
     text: string,
     document: vscode.TextDocument,
-    imports: { importName: string; range: vscode.Range; importType: "import" | "require" }[],
+    imports: {
+      importName: string;
+      range: vscode.Range;
+      importType: "import" | "require";
+    }[]
   ): void {
     try {
       const ast = parseModule(text, { jsx: true, tolerant: true, loc: true });
 
       for (const node of ast.body) {
-        if (node.type === "ImportDeclaration" && node.source && node.source.value && node.loc) {
+        if (
+          node.type === "ImportDeclaration" &&
+          node.source &&
+          node.source.value &&
+          node.loc
+        ) {
           const importPath = node.source.value as string;
 
           // Skip relative imports
@@ -209,11 +269,21 @@ export class ImportValidator {
           const packageName = this.extractPackageName(importPath);
 
           // Create a range for the import statement
-          const startPosition = new vscode.Position(node.loc.start.line - 1, node.loc.start.column);
-          const endPosition = new vscode.Position(node.loc.end.line - 1, node.loc.end.column);
+          const startPosition = new vscode.Position(
+            node.loc.start.line - 1,
+            node.loc.start.column
+          );
+          const endPosition = new vscode.Position(
+            node.loc.end.line - 1,
+            node.loc.end.column
+          );
           const range = new vscode.Range(startPosition, endPosition);
 
-          imports.push({ importName: packageName, range, importType: "import" });
+          imports.push({
+            importName: packageName,
+            range,
+            importType: "import",
+          });
         }
       }
     } catch (error) {
@@ -225,14 +295,20 @@ export class ImportValidator {
   private extractCommonJSRequires(
     text: string,
     document: vscode.TextDocument,
-    imports: { importName: string; range: vscode.Range; importType: "import" | "require" }[],
+    imports: {
+      importName: string;
+      range: vscode.Range;
+      importType: "import" | "require";
+    }[]
   ): void {
     try {
       // Match require statements like: const foo = require('package-name')
-      const requireRegex = /(?:const|let|var)\s+(?:\w+|\{\s*[^}]+\s*\})\s*=\s*require\s*$$\s*['"]([^'"]+)['"]\s*$$/g;
+      const requireRegex =
+        /(?:const|let|var)\s+(?:\w+|\{\s*[^}]+\s*\})\s*=\s*require\s*$$\s*['"]([^'"]+)['"]\s*$$/g;
 
       // Match dynamic requires like: require('package-name')
-      const dynamicRequireRegex = /(?<![\w$])require\s*$$\s*['"]([^'"]+)['"]\s*$$/g;
+      const dynamicRequireRegex =
+        /(?<![\w$])require\s*$$\s*['"]([^'"]+)['"]\s*$$/g;
 
       let match: RegExpExecArray | null;
       const text2 = text;
@@ -313,7 +389,7 @@ export class ImportValidator {
     for (const folder of workspaceFolders) {
       const jsFiles = await vscode.workspace.findFiles(
         new vscode.RelativePattern(folder, "**/*.{js,jsx,ts,tsx}"),
-        "**/node_modules/**",
+        "**/node_modules/**"
       );
 
       // Limit the number of files to process
@@ -321,7 +397,9 @@ export class ImportValidator {
 
       for (const file of filesToProcess) {
         if (processedCount >= maxFiles) {
-          console.log(`Reached maximum file limit (${maxFiles}). Stopping import collection.`);
+          console.log(
+            `Reached maximum file limit (${maxFiles}). Stopping import collection.`
+          );
           break;
         }
 

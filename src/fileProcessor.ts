@@ -5,13 +5,13 @@ import type { DiagnosticsManager } from "./diagnosticsManager";
 import type { StatusBarManager } from "./statusBarManager";
 
 interface ProcessingStats {
-  totalFiles: number
-  processedFiles: number
-  skippedFiles: number
-  totalImports: number
-  validImports: number
-  invalidImports: number
-  processingTime: number
+  totalFiles: number;
+  processedFiles: number;
+  skippedFiles: number;
+  totalImports: number;
+  validImports: number;
+  invalidImports: number;
+  processingTime: number;
 }
 
 export class FileProcessor {
@@ -27,7 +27,7 @@ export class FileProcessor {
     private validator: ImportValidator,
     private diagnosticsManager: DiagnosticsManager,
     private statusBarManager: StatusBarManager,
-    context: vscode.ExtensionContext,
+    context: vscode.ExtensionContext
   ) {
     this.extensionContext = context;
   }
@@ -151,12 +151,19 @@ export class FileProcessor {
               batchSize,
               excludePatterns,
               progress,
-              signal,
+              signal
             );
-          },
+          }
         );
       } else {
-        return await this.doProcessWorkspace(workspaceFolders, maxFiles, batchSize, excludePatterns, null, signal);
+        return await this.doProcessWorkspace(
+          workspaceFolders,
+          maxFiles,
+          batchSize,
+          excludePatterns,
+          null,
+          signal
+        );
       }
     } catch (error) {
       console.error("Error processing workspace:", error);
@@ -177,7 +184,7 @@ export class FileProcessor {
     batchSize: number,
     excludePatterns: string[],
     progress: vscode.Progress<{ message?: string; increment?: number }> | null,
-    signal: AbortSignal,
+    signal: AbortSignal
   ): Promise<ProcessingStats> {
     const startTime = performance.now();
 
@@ -188,7 +195,7 @@ export class FileProcessor {
         const files = await vscode.workspace.findFiles(
           new vscode.RelativePattern(folder, "**/*.{js,jsx,ts,tsx}"),
           `{${excludePatterns.join(",")}}`,
-          maxFiles - allFiles.length,
+          maxFiles - allFiles.length
         );
         allFiles.push(...files);
 
@@ -197,7 +204,10 @@ export class FileProcessor {
           break;
         }
       } catch (error) {
-        console.error(`Error finding files in workspace folder ${folder.uri.fsPath}:`, error);
+        console.error(
+          `Error finding files in workspace folder ${folder.uri.fsPath}:`,
+          error
+        );
       }
     }
 
@@ -206,7 +216,9 @@ export class FileProcessor {
     this.stats.totalFiles = filesToProcess.length;
 
     if (progress) {
-      progress.report({ message: `Found ${filesToProcess.length} files to process` });
+      progress.report({
+        message: `Found ${filesToProcess.length} files to process`,
+      });
     }
 
     // Process files in batches
@@ -222,7 +234,9 @@ export class FileProcessor {
       await Promise.all(
         batch.map(async (file) => {
           try {
-            if (signal.aborted) {return;}
+            if (signal.aborted) {
+              return;
+            }
 
             // Skip if already processed
             if (this.processedFiles.has(file.fsPath)) {
@@ -242,13 +256,18 @@ export class FileProcessor {
             console.error(`Error processing file ${file.fsPath}:`, error);
             this.stats.skippedFiles++;
           }
-        }),
+        })
       );
 
       if (progress) {
-        const percentComplete = Math.min(100, Math.round(((i + batch.length) / filesToProcess.length) * 100));
+        const percentComplete = Math.min(
+          100,
+          Math.round(((i + batch.length) / filesToProcess.length) * 100)
+        );
         progress.report({
-          message: `Processed ${i + batch.length} of ${filesToProcess.length} files (${percentComplete}%)`,
+          message: `Processed ${i + batch.length} of ${
+            filesToProcess.length
+          } files (${percentComplete}%)`,
           increment: (batch.length / filesToProcess.length) * 100,
         });
       }
@@ -289,26 +308,66 @@ export class FileProcessor {
   private getExcludePatterns(): string[] {
     const config = vscode.workspace.getConfiguration("npmImportValidator");
     const excludePatterns = config.get<string[]>("excludePatterns") || [];
-    const excludeReactNextjs = config.get<boolean>("excludeReactNextjs") || true;
-    const excludeOtherExtensions = config.get<boolean>("excludeOtherExtensions") || true;
+    const excludeCommonFrameworks =
+      config.get<boolean>("excludeCommonFrameworks") || true;
+    const excludeOtherExtensions =
+      config.get<boolean>("excludeOtherExtensions") || true;
 
     // Standard exclusions
-    const standardExclusions = ["**/node_modules/**", "**/dist/**", "**/out/**", "**/build/**", "**/.git/**"];
+    const standardExclusions = [
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/out/**",
+      "**/build/**",
+      "**/.git/**",
+    ];
 
-    // Add React/Next.js patterns if configured
-    const reactNextjsExclusions = excludeReactNextjs
-      ? ["**/react/**", "**/react-dom/**", "**/next/**", "**/.next/**"]
+    // Add common framework patterns if configured
+    const frameworkExclusions = excludeCommonFrameworks
+      ? [
+          // React
+          "**/react/**",
+          "**/react-dom/**",
+          "**/react-router/**",
+          "**/react-redux/**",
+          // Angular
+          "**/angular/**",
+          "**/angular-core/**",
+          "**/angular-common/**",
+          "**/angular-material/**",
+          "**/rxjs/**",
+          // Next.js
+          "**/next/**",
+          "**/.next/**",
+          "**/next-auth/**",
+          // Vue
+          "**/vue/**",
+          "**/vue-router/**",
+          "**/vuex/**",
+          // Common UI libraries
+          "**/material-ui/**",
+          "**/antd/**",
+          "**/bootstrap/**",
+          "**/tailwindcss/**",
+          // Common utilities
+          "**/lodash/**",
+          "**/moment/**",
+          "**/axios/**",
+          "**/jquery/**",
+        ]
       : [];
 
     // Add patterns to exclude other extensions
-    const otherExtensionsExclusions = excludeOtherExtensions ? ["**/.vscode-test/**", "**/.vscode/extensions/**"] : [];
+    const otherExtensionsExclusions = excludeOtherExtensions
+      ? ["**/.vscode-test/**", "**/.vscode/extensions/**"]
+      : [];
 
     // Custom exclusions from user settings
     const customExclusions = this.getCustomExcludePatterns();
 
     return [
       ...standardExclusions,
-      ...reactNextjsExclusions,
+      ...frameworkExclusions,
       ...otherExtensionsExclusions,
       ...customExclusions,
       ...excludePatterns,
@@ -379,7 +438,11 @@ export class FileProcessor {
     }
 
     // Check for common extension paths
-    const extensionPatterns = [/[\\/]\.vscode-test[\\/]/, /[\\/]vscode-extension[\\/]/, /[\\/]vscode-insiders[\\/]/];
+    const extensionPatterns = [
+      /[\\/]\.vscode-test[\\/]/,
+      /[\\/]vscode-extension[\\/]/,
+      /[\\/]vscode-insiders[\\/]/,
+    ];
 
     return extensionPatterns.some((pattern) => pattern.test(filePath));
   }

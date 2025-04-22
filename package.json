@@ -72,7 +72,56 @@
         },
         "npmImportValidator.ignoredPackages": {
           "type": "array",
-          "default": [],
+          "default": [
+            "react",
+            "react-dom",
+            "react-router",
+            "react-router-dom",
+            "react-redux",
+            "redux",
+            "next",
+            "next-auth",
+            "angular",
+            "@angular/core",
+            "@angular/common",
+            "@angular/material",
+            "@angular/forms",
+            "rxjs",
+            "vue",
+            "vue-router",
+            "vuex",
+            "axios",
+            "lodash",
+            "moment",
+            "jquery",
+            "bootstrap",
+            "tailwindcss",
+            "@mui/material",
+            "antd",
+            "express",
+            "koa",
+            "fastify",
+            "mongoose",
+            "sequelize",
+            "prisma",
+            "graphql",
+            "apollo-client",
+            "apollo-server",
+            "webpack",
+            "rollup",
+            "vite",
+            "jest",
+            "mocha",
+            "chai",
+            "cypress",
+            "storybook",
+            "styled-components",
+            "emotion",
+            "framer-motion",
+            "three",
+            "d3",
+            "chart.js"
+          ],
           "description": "List of packages to ignore during validation"
         },
         "npmImportValidator.severityLevel": {
@@ -107,6 +156,11 @@
           ],
           "description": "Glob patterns for files to exclude from validation"
         },
+        "npmImportValidator.excludeCommonFrameworks": {
+          "type": "boolean",
+          "default": true,
+          "description": "Exclude common frameworks like React, Angular, Next.js, and Vue"
+        },
         "npmImportValidator.excludeReactNextjs": {
           "type": "boolean",
           "default": true,
@@ -137,7 +191,7 @@
         {
           "id": "npm-import-validator",
           "title": "NPM Import Validator",
-          "icon": "resources/vscode-icon.png"
+          "icon": "$(package)"
         }
       ]
     },
@@ -147,7 +201,19 @@
           "id": "npmImports",
           "name": "NPM Imports",
           "when": "workbenchState != empty",
-          "icon": "resources/vscode-icon.png"
+          "icon": "$(package)"
+        },
+        {
+          "id": "npmStatistics",
+          "name": "Import Statistics",
+          "when": "workbenchState != empty",
+          "icon": "$(graph)"
+        },
+        {
+          "id": "npmSettings",
+          "name": "Validator Settings",
+          "when": "workbenchState != empty",
+          "icon": "$(settings-gear)"
         }
       ]
     },
@@ -168,6 +234,11 @@
         {
           "command": "npm-import-validator.clearCache",
           "when": "view == npmImports",
+          "group": "navigation"
+        },
+        {
+          "command": "npm-import-validator.showStats",
+          "when": "view == npmStatistics",
           "group": "navigation"
         }
       ],
@@ -197,7 +268,6 @@
     "test": "node ./out/test/runTest.js"
   },
   "devDependencies": {
-    "@types/esprima": "^4.0.6",
     "@types/glob": "^8.1.0",
     "@types/mocha": "^10.0.1",
     "@types/node": "16.x",
@@ -214,9 +284,9 @@
     "webpack-cli": "^5.0.2"
   },
   "dependencies": {
-    "esprima": "^4.0.1",
-    "marked": "^9.1.5",
     "node-fetch": "^3.3.2",
-    "semver": "^7.5.4"
+    "esprima": "^4.0.1",
+    "semver": "^7.5.4",
+    "marked": "^9.1.5"
   }
 }

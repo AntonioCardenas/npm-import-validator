@@ -16,7 +16,9 @@ export async function activate(context: vscode.ExtensionContext) {
   // Ensure proper activation
   const activationSuccessful = await ensureActivation();
   if (!activationSuccessful) {
-    vscode.window.showErrorMessage("NPM Import Validator could not be fully activated. Some features may not work.");
+    vscode.window.showErrorMessage(
+      "NPM Import Validator could not be fully activated. Some features may not work."
+    );
   }
 
   // Create instances of our managers and providers
@@ -24,9 +26,21 @@ export async function activate(context: vscode.ExtensionContext) {
   const validator = new ImportValidator(packageInfoProvider);
   const diagnosticsManager = new DiagnosticsManager();
   const statusBarManager = new StatusBarManager();
-  const commandManager = new CommandManager(validator, diagnosticsManager, packageInfoProvider);
-  const fileProcessor = new FileProcessor(validator, diagnosticsManager, statusBarManager, context);
-  const importsTreeDataProvider = new ImportsTreeDataProvider(validator, fileProcessor);
+  const commandManager = new CommandManager(
+    validator,
+    diagnosticsManager,
+    packageInfoProvider
+  );
+  const fileProcessor = new FileProcessor(
+    validator,
+    diagnosticsManager,
+    statusBarManager,
+    context
+  );
+  const importsTreeDataProvider = new ImportsTreeDataProvider(
+    validator,
+    fileProcessor
+  );
   const codeLensProvider = new CodeLensProvider(validator, packageInfoProvider);
 
   // Register tree view
@@ -50,39 +64,50 @@ export async function activate(context: vscode.ExtensionContext) {
         { language: "typescript" },
         { language: "typescriptreact" },
       ],
-      codeLensProvider,
-    ),
+      codeLensProvider
+    )
   );
 
   // Register commands
   context.subscriptions.push(
-    vscode.commands.registerCommand("npm-import-validator.validateImports", async () => {
-      const editor = vscode.window.activeTextEditor;
-      if (editor && isValidFileType(editor.document)) {
-        await fileProcessor.processFile(editor.document);
-        importsTreeDataProvider.refresh();
-      } else {
-        vscode.window.showInformationMessage("No active JavaScript or TypeScript file to validate.");
+    vscode.commands.registerCommand(
+      "npm-import-validator.validateImports",
+      async () => {
+        const editor = vscode.window.activeTextEditor;
+        if (editor && isValidFileType(editor.document)) {
+          await fileProcessor.processFile(editor.document);
+          importsTreeDataProvider.refresh();
+        } else {
+          vscode.window.showInformationMessage(
+            "No active JavaScript or TypeScript file to validate."
+          );
+        }
       }
-    }),
+    )
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("npm-import-validator.validateWorkspace", async () => {
-      const stats = await fileProcessor.processWorkspace(true);
-      vscode.window.showInformationMessage(
-        `Validation complete: ${stats.processedFiles} files processed, ` +
-          `${stats.totalImports} imports found, ${stats.invalidImports} invalid imports.`,
-      );
-      importsTreeDataProvider.refresh();
-    }),
+    vscode.commands.registerCommand(
+      "npm-import-validator.validateWorkspace",
+      async () => {
+        const stats = await fileProcessor.processWorkspace(true);
+        vscode.window.showInformationMessage(
+          `Validation complete: ${stats.processedFiles} files processed, ` +
+            `${stats.totalImports} imports found, ${stats.invalidImports} invalid imports.`
+        );
+        importsTreeDataProvider.refresh();
+      }
+    )
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("npm-import-validator.cancelValidation", () => {
-      fileProcessor.cancelProcessing();
-      vscode.window.showInformationMessage("Import validation cancelled.");
-    }),
+    vscode.commands.registerCommand(
+      "npm-import-validator.cancelValidation",
+      () => {
+        fileProcessor.cancelProcessing();
+        vscode.window.showInformationMessage("Import validation cancelled.");
+      }
+    )
   );
 
   context.subscriptions.push(
@@ -90,43 +115,60 @@ export async function activate(context: vscode.ExtensionContext) {
       validator.clearCaches();
       packageInfoProvider.clearCache();
       fileProcessor.clearCaches();
-      vscode.window.showInformationMessage("NPM Import Validator cache cleared.");
-    }),
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand("npm-import-validator.showPackageInfo", async (packageName) => {
-      await commandManager.showPackageInfo(packageName);
-    }),
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand("npm-import-validator.openNpmPage", (packageName: string) => {
-      vscode.env.openExternal(vscode.Uri.parse(`https://www.npmjs.com/package/${packageName}`));
-    }),
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand("npm-import-validator.showAllImports", async () => {
-      // First, focus the view container
-      await vscode.commands.executeCommand("workbench.view.extension.npm-import-validator");
-
-      // Refresh the tree data provider
-      importsTreeDataProvider.refresh();
-    }),
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand("npm-import-validator.showStats", async () => {
-      const stats = fileProcessor.getStats();
-      const panel = vscode.window.createWebviewPanel(
-        "npmImportStats",
-        "NPM Import Validator Stats",
-        vscode.ViewColumn.One,
-        { enableScripts: true },
+      vscode.window.showInformationMessage(
+        "NPM Import Validator cache cleared."
       );
+    })
+  );
 
-      panel.webview.html = `
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "npm-import-validator.showPackageInfo",
+      async (packageName) => {
+        await commandManager.showPackageInfo(packageName);
+      }
+    )
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "npm-import-validator.openNpmPage",
+      (packageName: string) => {
+        vscode.env.openExternal(
+          vscode.Uri.parse(`https://www.npmjs.com/package/${packageName}`)
+        );
+      }
+    )
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "npm-import-validator.showAllImports",
+      async () => {
+        // First, focus the view container
+        await vscode.commands.executeCommand(
+          "workbench.view.extension.npm-import-validator"
+        );
+
+        // Refresh the tree data provider
+        importsTreeDataProvider.refresh();
+      }
+    )
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "npm-import-validator.showStats",
+      async () => {
+        const stats = fileProcessor.getStats();
+        const panel = vscode.window.createWebviewPanel(
+          "npmImportStats",
+          "NPM Import Validator Stats",
+          vscode.ViewColumn.One,
+          { enableScripts: true }
+        );
+
+        panel.webview.html = `
         <!DOCTYPE html>
         <html lang="en">
         <head>
@@ -170,7 +212,9 @@ export async function activate(context: vscode.ExtensionContext) {
             .progress-bar {
               height: 100%;
               background-color: var(--vscode-progressBar-background);
-              width: ${(stats.processedFiles / Math.max(stats.totalFiles, 1)) * 100}%;
+              width: ${
+                (stats.processedFiles / Math.max(stats.totalFiles, 1)) * 100
+              }%;
             }
             h1 {
               margin-bottom: 20px;
@@ -217,53 +261,77 @@ export async function activate(context: vscode.ExtensionContext) {
             <div class="progress-container">
               <div class="progress-bar"></div>
             </div>
-            <div class="time">Processing time: ${Math.round(stats.processingTime)}ms</div>
+            <div class="time">Processing time: ${Math.round(
+              stats.processingTime
+            )}ms</div>
           </div>
         </body>
         </html>
       `;
-    }),
+      }
+    )
   );
 
   // Register status bar item
   context.subscriptions.push(statusBarManager.getStatusBarItem());
 
   // Register event listeners
-  if (vscode.workspace.getConfiguration("npmImportValidator").get("validateOnSave")) {
+  if (
+    vscode.workspace
+      .getConfiguration("npmImportValidator")
+      .get("validateOnSave")
+  ) {
     context.subscriptions.push(
       vscode.workspace.onDidSaveTextDocument((document) => {
-        if (isValidFileType(document) && fileProcessor.shouldProcessFile(document.uri.fsPath)) {
+        if (
+          isValidFileType(document) &&
+          fileProcessor.shouldProcessFile(document.uri.fsPath)
+        ) {
           fileProcessor.processFile(document);
           importsTreeDataProvider.refresh();
         }
-      }),
+      })
     );
   }
 
-  if (vscode.workspace.getConfiguration("npmImportValidator").get("validateOnOpen")) {
+  if (
+    vscode.workspace
+      .getConfiguration("npmImportValidator")
+      .get("validateOnOpen")
+  ) {
     context.subscriptions.push(
       vscode.workspace.onDidOpenTextDocument((document) => {
-        if (isValidFileType(document) && fileProcessor.shouldProcessFile(document.uri.fsPath)) {
+        if (
+          isValidFileType(document) &&
+          fileProcessor.shouldProcessFile(document.uri.fsPath)
+        ) {
           fileProcessor.processFile(document);
           importsTreeDataProvider.refresh();
         }
-      }),
+      })
     );
   }
 
   // Listen for active editor changes to update the tree view
   context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor((editor) => {
-      if (editor && isValidFileType(editor.document) && fileProcessor.shouldProcessFile(editor.document.uri.fsPath)) {
+      if (
+        editor &&
+        isValidFileType(editor.document) &&
+        fileProcessor.shouldProcessFile(editor.document.uri.fsPath)
+      ) {
         importsTreeDataProvider.refresh();
       }
-    }),
+    })
   );
 
   // Validate the current file if one is open
   if (vscode.window.activeTextEditor) {
     const document = vscode.window.activeTextEditor.document;
-    if (isValidFileType(document) && fileProcessor.shouldProcessFile(document.uri.fsPath)) {
+    if (
+      isValidFileType(document) &&
+      fileProcessor.shouldProcessFile(document.uri.fsPath)
+    ) {
       fileProcessor.processFile(document);
       importsTreeDataProvider.refresh();
     }
@@ -272,7 +340,12 @@ export async function activate(context: vscode.ExtensionContext) {
 
 // Check if the document is a JavaScript or TypeScript file
 function isValidFileType(document: vscode.TextDocument): boolean {
-  return ["javascript", "javascriptreact", "typescript", "typescriptreact"].includes(document.languageId);
+  return [
+    "javascript",
+    "javascriptreact",
+    "typescript",
+    "typescriptreact",
+  ].includes(document.languageId);
 }
 
 // Extension deactivation
