@@ -1,0 +1,139 @@
+{
+  "name": "npm-import-validator",
+  "displayName": "NPM Import Validator",
+  "description": "Validates imported packages against npm registry good if your doing vibe coding",
+  "version": "1.0.0",
+  "author": {
+    "name": "Antonio Cárdenas",
+    "email": "me@yeou.dev"
+  },
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Linters",
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:javascript",
+    "onLanguage:javascriptreact",
+    "onLanguage:typescript",
+    "onLanguage:typescriptreact"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "npm-import-validator.validateImports",
+        "title": "Validate NPM Imports"
+      },
+      {
+        "command": "npm-import-validator.showPackageInfo",
+        "title": "Show NPM Package Info"
+      },
+      {
+        "command": "npm-import-validator.openNpmPage",
+        "title": "Open NPM Package Page"
+      },
+      {
+        "command": "npm-import-validator.showAllImports",
+        "title": "Show All NPM Imports"
+      }
+    ],
+    "configuration": {
+      "title": "NPM Import Validator",
+      "properties": {
+        "npmImportValidator.validateOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Validate imports when a file is saved"
+        },
+        "npmImportValidator.validateOnOpen": {
+          "type": "boolean",
+          "default": true,
+          "description": "Validate imports when a file is opened"
+        },
+        "npmImportValidator.ignoredPackages": {
+          "type": "array",
+          "default": [],
+          "description": "List of packages to ignore during validation"
+        },
+        "npmImportValidator.severityLevel": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warning",
+            "info"
+          ],
+          "default": "warning",
+          "description": "Severity level for invalid imports"
+        },
+        "npmImportValidator.cacheTimeout": {
+          "type": "number",
+          "default": 86400,
+          "description": "Time in seconds to cache npm registry data (default: 24 hours)"
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "npm-import-validator",
+          "title": "NPM Import Validator",
+          "icon": "resources/npm-icon.png"
+        }
+      ]
+    },
+    "views": {
+      "npm-import-validator": [
+        {
+          "id": "npmImports",
+          "name": "NPM Imports",
+          "when": "workbenchState != empty"
+        }
+      ]
+    },
+    "menus": {
+      "editor/context": [
+        {
+          "command": "npm-import-validator.showPackageInfo",
+          "when": "editorTextFocus",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack --mode development",
+    "watch": "webpack --watch --mode development",
+    "package": "webpack --mode production --devtool source-map",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/glob": "^8.1.0",
+    "@types/mocha": "^10.0.1",
+    "@types/node": "16.x",
+    "@types/vscode": "^1.80.0",
+    "@typescript-eslint/eslint-plugin": "^5.59.1",
+    "@typescript-eslint/parser": "^5.59.1",
+    "@vscode/test-electron": "^2.3.0",
+    "eslint": "^8.39.0",
+    "glob": "^8.1.0",
+    "mocha": "^10.2.0",
+    "ts-loader": "^9.4.2",
+    "typescript": "^5.0.4",
+    "webpack": "^5.81.0",
+    "webpack-cli": "^5.0.2"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.2",
+    "esprima": "^4.0.1",
+    "semver": "^7.5.4",
+    "marked": "^9.1.5"
+  }
+}
