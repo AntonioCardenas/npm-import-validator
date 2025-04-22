@@ -3,9 +3,10 @@ import type { ImportResult } from "./importValidator";
 
 export class DiagnosticsManager {
   private diagnosticCollection: vscode.DiagnosticCollection;
+  private extensionId = "npm-import-validator";
 
   constructor() {
-    this.diagnosticCollection = vscode.languages.createDiagnosticCollection("npm-import-validator");
+    this.diagnosticCollection = vscode.languages.createDiagnosticCollection(this.extensionId);
   }
 
   // Update diagnostics for a document
@@ -47,8 +48,11 @@ export class DiagnosticsManager {
           severity,
         );
 
-        diagnostic.code = "npm-import-validator";
-        diagnostic.source = "npm-import-validator";
+        diagnostic.code = {
+          value: "npm-import-validator",
+          target: vscode.Uri.parse(`https://www.npmjs.com/package/${result.importName}`),
+        };
+        diagnostic.source = this.extensionId;
 
         // Add import type to the message
         diagnostic.message = `${result.importType === "import" ? "ES6 import" : "CommonJS require"} '${result.importName}' not found on npm registry`;

@@ -16,6 +16,8 @@ A VS Code extension that validates imported packages against the npm registry.
 
 The extension automatically validates imports when you open or save a JavaScript or TypeScript file. Invalid imports (packages not found on npm registry) are highlighted with squiggly underlines.
 
+By clicking on Workspace > Scan Workspace, you can easily see if the imported packages exist in npm. 
+
 ### Commands
 
 - **Validate NPM Imports**: Manually trigger validation for the current file

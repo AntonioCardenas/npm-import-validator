@@ -32,6 +32,7 @@ export class ImportValidator {
   private importExistenceCache: Map<string, { exists: boolean; timestamp: number }> = new Map();
   private circularDependencyDetector: Set<string> = new Set();
   private processingTimeout = 5000; // 5 seconds timeout for processing a file
+  private extensionId = "npm-import-validator";
 
   constructor(private packageInfoProvider: PackageInfoProvider) {}
 
@@ -60,6 +61,12 @@ export class ImportValidator {
 
       // Skip relative imports and local imports
       if (this.isLocalImport(importName)) {
+        continue;
+      }
+
+      // Skip ignored packages
+      const ignoredPackages = config.get<string[]>("ignoredPackages") || [];
+      if (ignoredPackages.includes(importName)) {
         continue;
       }
 
@@ -220,52 +227,57 @@ export class ImportValidator {
     document: vscode.TextDocument,
     imports: { importName: string; range: vscode.Range; importType: "import" | "require" }[],
   ): void {
-    // Match require statements like: const foo = require('package-name')
-    const requireRegex = /(?:const|let|var)\s+(?:\w+|\{\s*[^}]+\s*\})\s*=\s*require\s*$$\s*['"]([^'"]+)['"]\s*$$/g;
+    try {
+      // Match require statements like: const foo = require('package-name')
+      const requireRegex = /(?:const|let|var)\s+(?:\w+|\{\s*[^}]+\s*\})\s*=\s*require\s*$$\s*['"]([^'"]+)['"]\s*$$/g;
 
-    // Match dynamic requires like: require('package-name')
-    const dynamicRequireRegex = /(?<![\w$])require\s*$$\s*['"]([^'"]+)['"]\s*$$/g;
+      // Match dynamic requires like: require('package-name')
+      const dynamicRequireRegex = /(?<![\w$])require\s*$$\s*['"]([^'"]+)['"]\s*$$/g;
 
-    let match: RegExpExecArray | null;
+      let match: RegExpExecArray | null;
+      const text2 = text;
 
-    // Process standard requires
-    while ((match = requireRegex.exec(text)) !== null) {
-      const importPath = match[1];
+      // Process standard requires
+      while ((match = requireRegex.exec(text2)) !== null) {
+        const importPath = match[1];
 
-      // Skip relative imports
-      if (this.isLocalImport(importPath)) {
-        continue;
+        // Skip relative imports
+        if (this.isLocalImport(importPath)) {
+          continue;
+        }
+
+        // Handle scoped packages and submodules
+        const packageName = this.extractPackageName(importPath);
+
+        // Create a range for the require statement
+        const startPos = document.positionAt(match.index);
+        const endPos = document.positionAt(match.index + match[0].length);
+        const range = new vscode.Range(startPos, endPos);
+
+        imports.push({ importName: packageName, range, importType: "require" });
       }
 
-      // Handle scoped packages and submodules
-      const packageName = this.extractPackageName(importPath);
+      // Process dynamic requires
+      while ((match = dynamicRequireRegex.exec(text2)) !== null) {
+        const importPath = match[1];
 
-      // Create a range for the require statement
-      const startPos = document.positionAt(match.index);
-      const endPos = document.positionAt(match.index + match[0].length);
-      const range = new vscode.Range(startPos, endPos);
+        // Skip relative imports
+        if (this.isLocalImport(importPath)) {
+          continue;
+        }
 
-      imports.push({ importName: packageName, range, importType: "require" });
-    }
+        // Handle scoped packages and submodules
+        const packageName = this.extractPackageName(importPath);
 
-    // Process dynamic requires
-    while ((match = dynamicRequireRegex.exec(text)) !== null) {
-      const importPath = match[1];
+        // Create a range for the require statement
+        const startPos = document.positionAt(match.index);
+        const endPos = document.positionAt(match.index + match[0].length);
+        const range = new vscode.Range(startPos, endPos);
 
-      // Skip relative imports
-      if (this.isLocalImport(importPath)) {
-        continue;
+        imports.push({ importName: packageName, range, importType: "require" });
       }
-
-      // Handle scoped packages and submodules
-      const packageName = this.extractPackageName(importPath);
-
-      // Create a range for the require statement
-      const startPos = document.positionAt(match.index);
-      const endPos = document.positionAt(match.index + match[0].length);
-      const range = new vscode.Range(startPos, endPos);
-
-      imports.push({ importName: packageName, range, importType: "require" });
+    } catch (error) {
+      console.error("Error extracting CommonJS requires:", error);
     }
   }
 

@@ -21,13 +21,16 @@ export class FileProcessor {
   private stats: ProcessingStats = this.resetStats();
   private isProcessing = false;
   private abortController: AbortController | null = null;
+  private extensionContext: vscode.ExtensionContext;
 
   constructor(
     private validator: ImportValidator,
     private diagnosticsManager: DiagnosticsManager,
     private statusBarManager: StatusBarManager,
-    private context: vscode.ExtensionContext,
-  ) {}
+    context: vscode.ExtensionContext,
+  ) {
+    this.extensionContext = context;
+  }
 
   private resetStats(): ProcessingStats {
     return {
@@ -49,6 +52,11 @@ export class FileProcessor {
 
     // Skip if already being processed
     if (this.processingQueue.has(filePath)) {
+      return;
+    }
+
+    // Skip if file should not be processed
+    if (!this.shouldProcessFile(filePath)) {
       return;
     }
 
@@ -112,13 +120,7 @@ export class FileProcessor {
     const config = vscode.workspace.getConfiguration("npmImportValidator");
     const maxFiles = config.get<number>("maxFilesToProcess") || 1000;
     const batchSize = config.get<number>("processingBatchSize") || 20;
-    const excludePatterns = config.get<string[]>("excludePatterns") || [];
-    const excludeReactNextjs = config.get<boolean>("excludeReactNextjs") || true;
-
-    // Add React/Next.js patterns if configured
-    if (excludeReactNextjs) {
-      excludePatterns.push("**/node_modules/**", "**/react/**", "**/react-dom/**", "**/next/**", "**/.next/**");
-    }
+    const excludePatterns = this.getExcludePatterns();
 
     // Find all JS/TS files in workspace
     const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -182,11 +184,21 @@ export class FileProcessor {
     // Find all JS/TS files
     const allFiles: vscode.Uri[] = [];
     for (const folder of workspaceFolders) {
-      const files = await vscode.workspace.findFiles(
-        new vscode.RelativePattern(folder, "**/*.{js,jsx,ts,tsx}"),
-        `{${excludePatterns.join(",")}}`,
-      );
-      allFiles.push(...files);
+      try {
+        const files = await vscode.workspace.findFiles(
+          new vscode.RelativePattern(folder, "**/*.{js,jsx,ts,tsx}"),
+          `{${excludePatterns.join(",")}}`,
+          maxFiles - allFiles.length,
+        );
+        allFiles.push(...files);
+
+        // Stop if we've reached the max files
+        if (allFiles.length >= maxFiles) {
+          break;
+        }
+      } catch (error) {
+        console.error(`Error finding files in workspace folder ${folder.uri.fsPath}:`, error);
+      }
     }
 
     // Limit the number of files
@@ -214,6 +226,12 @@ export class FileProcessor {
 
             // Skip if already processed
             if (this.processedFiles.has(file.fsPath)) {
+              this.stats.skippedFiles++;
+              return;
+            }
+
+            // Skip if file should not be processed
+            if (!this.shouldProcessFile(file.fsPath)) {
               this.stats.skippedFiles++;
               return;
             }
@@ -266,17 +284,70 @@ export class FileProcessor {
   }
 
   /**
-   * Check if a file should be processed based on exclusion rules
+   * Get all exclude patterns from configuration
    */
-  shouldProcessFile(filePath: string): boolean {
+  private getExcludePatterns(): string[] {
     const config = vscode.workspace.getConfiguration("npmImportValidator");
     const excludePatterns = config.get<string[]>("excludePatterns") || [];
     const excludeReactNextjs = config.get<boolean>("excludeReactNextjs") || true;
+    const excludeOtherExtensions = config.get<boolean>("excludeOtherExtensions") || true;
+
+    // Standard exclusions
+    const standardExclusions = ["**/node_modules/**", "**/dist/**", "**/out/**", "**/build/**", "**/.git/**"];
 
     // Add React/Next.js patterns if configured
-    if (excludeReactNextjs) {
-      excludePatterns.push("**/node_modules/**", "**/react/**", "**/react-dom/**", "**/next/**", "**/.next/**");
+    const reactNextjsExclusions = excludeReactNextjs
+      ? ["**/react/**", "**/react-dom/**", "**/next/**", "**/.next/**"]
+      : [];
+
+    // Add patterns to exclude other extensions
+    const otherExtensionsExclusions = excludeOtherExtensions ? ["**/.vscode-test/**", "**/.vscode/extensions/**"] : [];
+
+    // Custom exclusions from user settings
+    const customExclusions = this.getCustomExcludePatterns();
+
+    return [
+      ...standardExclusions,
+      ...reactNextjsExclusions,
+      ...otherExtensionsExclusions,
+      ...customExclusions,
+      ...excludePatterns,
+    ];
+  }
+
+  /**
+   * Get custom exclude patterns from workspace settings
+   */
+  private getCustomExcludePatterns(): string[] {
+    // Check for .npmimportignore file in workspace root
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+      return [];
     }
+
+    // Get patterns from settings
+    const config = vscode.workspace.getConfiguration("npmImportValidator");
+    const customPatterns = config.get<string[]>("customExcludePatterns") || [];
+
+    return customPatterns;
+  }
+
+  /**
+   * Check if a file should be processed based on exclusion rules
+   */
+  shouldProcessFile(filePath: string): boolean {
+    // Skip non-JS/TS files
+    if (!filePath.match(/\.(js|jsx|ts|tsx)$/i)) {
+      return false;
+    }
+
+    // Skip files from other extensions
+    if (this.isFileFromOtherExtension(filePath)) {
+      return false;
+    }
+
+    // Get all exclude patterns
+    const excludePatterns = this.getExcludePatterns();
 
     // Check if file matches any exclude pattern
     for (const pattern of excludePatterns) {
@@ -285,6 +356,41 @@ export class FileProcessor {
       }
     }
 
+    // Check if file is in a trusted workspace
+    if (!this.isFileTrusted(filePath)) {
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Check if a file is from another VS Code extension
+   */
+  private isFileFromOtherExtension(filePath: string): boolean {
+    // Check if file is in the .vscode/extensions directory
+    if (filePath.includes(".vscode/extensions")) {
+      // But allow our own extension
+      const ourExtensionPath = this.extensionContext.extensionPath;
+      if (filePath.startsWith(ourExtensionPath)) {
+        return false;
+      }
+      return true;
+    }
+
+    // Check for common extension paths
+    const extensionPatterns = [/[\\/]\.vscode-test[\\/]/, /[\\/]vscode-extension[\\/]/, /[\\/]vscode-insiders[\\/]/];
+
+    return extensionPatterns.some((pattern) => pattern.test(filePath));
+  }
+
+  /**
+   * Check if a file is in a trusted workspace
+   */
+  private isFileTrusted(_filePath: string): boolean {
+    // In VS Code, we can check if the workspace is trusted
+    // For now, we'll assume all files are trusted
+    // In a real implementation, you would use the workspace trust API
     return true;
   }
 
@@ -292,7 +398,12 @@ export class FileProcessor {
    * Convert glob pattern to RegExp
    */
   private convertGlobToRegExp(glob: string): string {
-    return glob.replace(/\*\*/g, ".*").replace(/\*/g, "[^/]*").replace(/\?/g, "[^/]");
+    return glob
+      .replace(/\./g, "\\.")
+      .replace(/\*\*/g, ".*")
+      .replace(/\*/g, "[^/]*")
+      .replace(/\?/g, "[^/]")
+      .replace(/\//g, "\\/");
   }
 
   /**

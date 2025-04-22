@@ -111,6 +111,16 @@
           "default": true,
           "description": "Exclude React, Next.js, and their associated folders"
         },
+        "npmImportValidator.excludeOtherExtensions": {
+          "type": "boolean",
+          "default": true,
+          "description": "Exclude files from other VS Code extensions"
+        },
+        "npmImportValidator.customExcludePatterns": {
+          "type": "array",
+          "default": [],
+          "description": "Custom glob patterns for files to exclude from validation"
+        },
         "npmImportValidator.pathAliases": {
           "type": "array",
           "default": [
