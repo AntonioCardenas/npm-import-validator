@@ -2,11 +2,12 @@
   "name": "npm-import-validator",
   "displayName": "NPM Import Validator",
   "description": "Validates imported packages against npm registry good if your doing vibe coding",
-  "version": "1.0.0",
+  "version": "1.1.2",
   "author": {
     "name": "Antonio Cárdenas",
     "email": "me@yeou.dev"
   },
+  "icon": "resources/vscode-icon.png",
   "engines": {
     "vscode": "^1.80.0"
   },
@@ -28,6 +29,18 @@
         "title": "Validate NPM Imports"
       },
       {
+        "command": "npm-import-validator.validateWorkspace",
+        "title": "Validate NPM Imports in Workspace"
+      },
+      {
+        "command": "npm-import-validator.cancelValidation",
+        "title": "Cancel NPM Import Validation"
+      },
+      {
+        "command": "npm-import-validator.clearCache",
+        "title": "Clear NPM Import Validator Cache"
+      },
+      {
         "command": "npm-import-validator.showPackageInfo",
         "title": "Show NPM Package Info"
       },
@@ -38,6 +51,10 @@
       {
         "command": "npm-import-validator.showAllImports",
         "title": "Show All NPM Imports"
+      },
+      {
+        "command": "npm-import-validator.showStats",
+        "title": "Show NPM Import Validator Statistics"
       }
     ],
     "configuration": {
@@ -55,8 +72,67 @@
         },
         "npmImportValidator.ignoredPackages": {
           "type": "array",
-          "default": [],
-          "description": "List of packages to ignore during validation"
+          "default": [
+            "react",
+            "react-dom",
+            "react-router",
+            "react-router-dom",
+            "react-redux",
+            "redux",
+            "next",
+            "next-auth",
+            "angular",
+            "@angular/core",
+            "@angular/common",
+            "@angular/material",
+            "@angular/forms",
+            "rxjs",
+            "vue",
+            "vue-router",
+            "vuex",
+            "axios",
+            "lodash",
+            "moment",
+            "jquery",
+            "bootstrap",
+            "tailwindcss",
+            "@mui/material",
+            "antd",
+            "express",
+            "koa",
+            "fastify",
+            "mongoose",
+            "sequelize",
+            "prisma",
+            "graphql",
+            "apollo-client",
+            "apollo-server",
+            "webpack",
+            "rollup",
+            "vite",
+            "jest",
+            "mocha",
+            "chai",
+            "cypress",
+            "storybook",
+            "styled-components",
+            "emotion",
+            "framer-motion",
+            "three",
+            "d3",
+            "chart.js"
+          ],
+          "description": "List of packages to identify as framework packages"
+        },
+        "npmImportValidator.frameworkSeverityLevel": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warning",
+            "info"
+          ],
+          "default": "info",
+          "description": "Severity level for invalid framework imports"
         },
         "npmImportValidator.severityLevel": {
           "type": "string",
@@ -72,6 +148,51 @@
           "type": "number",
           "default": 86400,
           "description": "Time in seconds to cache npm registry data (default: 24 hours)"
+        },
+        "npmImportValidator.maxFilesToProcess": {
+          "type": "number",
+          "default": 1000,
+          "description": "Maximum number of files to process in workspace scan"
+        },
+        "npmImportValidator.processingBatchSize": {
+          "type": "number",
+          "default": 20,
+          "description": "Number of files to process in parallel during workspace scan"
+        },
+        "npmImportValidator.excludePatterns": {
+          "type": "array",
+          "default": [
+            "**/node_modules/**"
+          ],
+          "description": "Glob patterns for files to exclude from validation"
+        },
+        "npmImportValidator.excludeCommonFrameworks": {
+          "type": "boolean",
+          "default": true,
+          "description": "Exclude common frameworks like React, Angular, Next.js, and Vue"
+        },
+        "npmImportValidator.excludeReactNextjs": {
+          "type": "boolean",
+          "default": true,
+          "description": "Exclude React, Next.js, and their associated folders"
+        },
+        "npmImportValidator.excludeOtherExtensions": {
+          "type": "boolean",
+          "default": true,
+          "description": "Exclude files from other VS Code extensions"
+        },
+        "npmImportValidator.customExcludePatterns": {
+          "type": "array",
+          "default": [],
+          "description": "Custom glob patterns for files to exclude from validation"
+        },
+        "npmImportValidator.pathAliases": {
+          "type": "array",
+          "default": [
+            "@/",
+            "~"
+          ],
+          "description": "Path aliases used in your project to identify local imports"
         }
       }
     },
@@ -80,7 +201,7 @@
         {
           "id": "npm-import-validator",
           "title": "NPM Import Validator",
-          "icon": "resources/npm-icon.png"
+          "icon": "$(package)"
         }
       ]
     },
@@ -89,7 +210,20 @@
         {
           "id": "npmImports",
           "name": "NPM Imports",
-          "when": "workbenchState != empty"
+          "when": "workbenchState != empty",
+          "icon": "$(package)"
+        },
+        {
+          "id": "npmStatistics",
+          "name": "Import Statistics",
+          "when": "workbenchState != empty",
+          "icon": "$(graph)"
+        },
+        {
+          "id": "npmSettings",
+          "name": "Validator Settings",
+          "when": "workbenchState != empty",
+          "icon": "$(settings-gear)"
         }
       ]
     },
@@ -99,6 +233,35 @@
           "command": "npm-import-validator.showPackageInfo",
           "when": "editorTextFocus",
           "group": "navigation"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "npm-import-validator.validateWorkspace",
+          "when": "view == npmImports",
+          "group": "navigation"
+        },
+        {
+          "command": "npm-import-validator.clearCache",
+          "when": "view == npmImports",
+          "group": "navigation"
+        },
+        {
+          "command": "npm-import-validator.showStats",
+          "when": "view == npmStatistics",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "npm-import-validator.showPackageInfo",
+          "when": "viewItem == import || viewItem == invalidImport || viewItem == projectImport || viewItem == frameworkImport",
+          "group": "inline"
+        },
+        {
+          "command": "npm-import-validator.openNpmPage",
+          "when": "viewItem == import || viewItem == projectImport || viewItem == frameworkImport",
+          "group": "inline"
         }
       ]
     }

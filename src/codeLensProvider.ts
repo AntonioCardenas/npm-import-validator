@@ -12,14 +12,23 @@ export class CodeLensProvider implements vscode.CodeLensProvider {
     const results = await this.validator.validateDocument(document);
     const codeLenses: vscode.CodeLens[] = [];
 
+    // Get ignored packages
+    const ignoredPackages =
+      vscode.workspace.getConfiguration("npmImportValidator").get<string[]>("ignoredPackages") || [];
+
     for (const result of results) {
+      // Skip ignored packages
+      if (ignoredPackages.includes(result.importName)) {
+        continue;
+      }
+
       let command: vscode.Command | undefined;
 
       if (result.existsOnNpm) {
         // Valid import - show version
         if (result.packageInfo) {
           command = {
-            title: `v${result.packageInfo.version}`,
+            title: `v${result.packageInfo.version} (${result.importType})`,
             command: "npm-import-validator.showPackageInfo",
             arguments: [result.importName],
           };
@@ -27,7 +36,7 @@ export class CodeLensProvider implements vscode.CodeLensProvider {
       } else {
         // Invalid import
         command = {
-          title: `Not found on npm registry`,
+          title: `Not found on npm registry (${result.importType})`,
           command: "npm-import-validator.showPackageInfo",
           arguments: [result.importName],
         };
