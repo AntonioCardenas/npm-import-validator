@@ -11,12 +11,13 @@ A VS Code extension that validates imported packages against the npm registry.
 - **Performance Optimized**: Efficiently handles large projects with parallel processing
 - **Support for CommonJS**: Validates both ES6 imports and CommonJS require statements
 
+![Feature Overview](https://raw.githubusercontent.com/antoniocardenas/npm-import-validator/main/resources/vscode-icon.png)
 
 ## Usage
 
 The extension automatically validates imports when you open or save a JavaScript or TypeScript file. Invalid imports (packages not found on npm registry) are highlighted with squiggly underlines.
 
-By clicking on Workspace > Scan Workspace, you can easily see if the imported packages exist in npm. 
+By clicking on Workspace > Scan Workspace, you can easily see if the imported packages exist in npm.
 
 ### Commands
 
@@ -31,12 +32,14 @@ By clicking on Workspace > Scan Workspace, you can easily see if the imported pa
 ### Code Lens
 
 The extension adds code lens above import statements showing:
+
 - Package version for valid imports
 - "Not found on npm registry" for invalid imports
 
 ### Status Bar
 
 The extension adds a status bar item that shows the current validation status:
+
 - 🔄 Validating NPM Imports...
 - ✅ NPM Imports Valid
 - ⚠️ X Invalid NPM Imports
@@ -47,6 +50,7 @@ Click on the status bar item to manually trigger validation.
 ### NPM Imports View
 
 The extension adds a view to the activity bar where you can browse:
+
 - Imports in the current file
 - Valid and invalid imports
 - Workspace import statistics
@@ -106,12 +110,13 @@ The extension is designed to handle large projects efficiently:
 - Code lens for import statements
 - Tree view for browsing imports
 
-
 ### 1.0.1
+
 - Support for CommonJS require statements
 - Performance optimizations for large projects
 - Configurable file processing limits
 - Detailed statistics view
+- Added Vscode Icon
 
 ## Contributing
 

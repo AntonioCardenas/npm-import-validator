@@ -7,6 +7,7 @@
     "name": "Antonio Cárdenas",
     "email": "me@yeou.dev"
   },
+  "icon": "resources/vscode-icon.png",
   "engines": {
     "vscode": "^1.80.0"
   },
@@ -136,7 +137,7 @@
         {
           "id": "npm-import-validator",
           "title": "NPM Import Validator",
-          "icon": "resources/npm-icon.png"
+          "icon": "resources/vscode-icon.png"
         }
       ]
     },
@@ -145,7 +146,8 @@
         {
           "id": "npmImports",
           "name": "NPM Imports",
-          "when": "workbenchState != empty"
+          "when": "workbenchState != empty",
+          "icon": "resources/vscode-icon.png"
         }
       ]
     },
@@ -195,6 +197,7 @@
     "test": "node ./out/test/runTest.js"
   },
   "devDependencies": {
+    "@types/esprima": "^4.0.6",
     "@types/glob": "^8.1.0",
     "@types/mocha": "^10.0.1",
     "@types/node": "16.x",
@@ -211,9 +214,9 @@
     "webpack-cli": "^5.0.2"
   },
   "dependencies": {
-    "node-fetch": "^3.3.2",
     "esprima": "^4.0.1",
-    "semver": "^7.5.4",
-    "marked": "^9.1.5"
+    "marked": "^9.1.5",
+    "node-fetch": "^3.3.2",
+    "semver": "^7.5.4"
   }
 }
