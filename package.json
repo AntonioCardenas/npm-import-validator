@@ -3,10 +3,21 @@
   "displayName": "NPM Import Validator",
   "description": "Validates imported packages against npm registry good if your doing vibe coding",
   "version": "1.1.2",
+  "publisher": "yeoudev",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/AntonioCardenas/npm-import-validator.git"
+  },
   "author": {
     "name": "Antonio Cárdenas",
     "email": "me@yeou.dev"
   },
+  "contributors": [
+    {
+      "name": "",
+      "url": "https://github.com/"
+    }
+  ],
   "icon": "resources/vscode-icon.png",
   "engines": {
     "vscode": "^1.80.0"
