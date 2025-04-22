@@ -2,7 +2,7 @@
   "name": "npm-import-validator",
   "displayName": "NPM Import Validator",
   "description": "Validates imported packages against npm registry good if your doing vibe coding",
-  "version": "1.0.1",
+  "version": "1.1.1",
   "author": {
     "name": "Antonio Cárdenas",
     "email": "me@yeou.dev"
@@ -122,7 +122,17 @@
             "d3",
             "chart.js"
           ],
-          "description": "List of packages to ignore during validation"
+          "description": "List of packages to identify as framework packages"
+        },
+        "npmImportValidator.frameworkSeverityLevel": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warning",
+            "info"
+          ],
+          "default": "info",
+          "description": "Severity level for invalid framework imports"
         },
         "npmImportValidator.severityLevel": {
           "type": "string",

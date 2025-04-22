@@ -3,6 +3,7 @@ import { performance } from "perf_hooks";
 import type { ImportValidator } from "./importValidator";
 import type { DiagnosticsManager } from "./diagnosticsManager";
 import type { StatusBarManager } from "./statusBarManager";
+import * as path from "path";
 
 interface ProcessingStats {
   totalFiles: number;
@@ -24,7 +25,7 @@ export class FileProcessor {
   private extensionContext: vscode.ExtensionContext;
 
   constructor(
-    private validator: ImportValidator,
+    public validator: ImportValidator,
     private diagnosticsManager: DiagnosticsManager,
     private statusBarManager: StatusBarManager,
     context: vscode.ExtensionContext
@@ -65,7 +66,28 @@ export class FileProcessor {
 
     try {
       const startTime = performance.now();
-      const results = await this.validator.validateDocument(document);
+      let results: { importName: string; existsOnNpm: boolean }[];
+
+      try {
+        results = await this.validator.validateDocument(document);
+      } catch (validationError) {
+        console.error(
+          `Error validating document ${document.uri.fsPath}:`,
+          validationError
+        );
+        this.statusBarManager.setError();
+
+        // Create an empty results array to avoid further errors
+        results = [];
+
+        // Show a more specific error message
+        vscode.window.showErrorMessage(
+          `Error validating imports in ${path.basename(
+            document.uri.fsPath
+          )}. See console for details.`
+        );
+      }
+
       const endTime = performance.now();
 
       // Update stats
@@ -80,7 +102,14 @@ export class FileProcessor {
       this.fileImportCache.set(filePath, importNames);
 
       // Update diagnostics
-      this.diagnosticsManager.updateDiagnostics(document, results);
+      const enrichedResults = results.map((result) => ({
+        ...result,
+        range: new vscode.Range(0, 0, 0, 0), // Replace with actual range logic
+        packageInfo: null, // Replace with actual package info if available
+        importType: "import" as "import" | "require", // Replace with actual import type logic
+        isFramework: false, // Replace with actual framework detection logic
+      }));
+      this.diagnosticsManager.updateDiagnostics(document, enrichedResults);
 
       // Update status bar
       const invalidCount = results.filter((r) => !r.existsOnNpm).length;

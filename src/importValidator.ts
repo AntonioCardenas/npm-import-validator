@@ -2,12 +2,14 @@ import * as vscode from "vscode";
 import { parseModule } from "esprima";
 import type { PackageInfoProvider } from "./packageInfoProvider";
 
+// Add a new property to the ImportResult interface to track framework imports
 export interface ImportResult {
   importName: string;
   range: vscode.Range;
   existsOnNpm: boolean;
   packageInfo: PackageInfo | null;
   importType: "import" | "require";
+  isFramework: boolean; // New property to identify framework packages
 }
 
 export interface PackageInfo {
@@ -38,7 +40,7 @@ export class ImportValidator {
 
   constructor(private packageInfoProvider: PackageInfoProvider) {}
 
-  // Validate imports in a document
+  // Modify the validateDocument method to identify framework imports instead of skipping them
   async validateDocument(
     document: vscode.TextDocument
   ): Promise<ImportResult[]> {
@@ -68,11 +70,11 @@ export class ImportValidator {
         continue;
       }
 
-      // Skip ignored packages
+      // Get ignored packages
       const ignoredPackages = config.get<string[]>("ignoredPackages") || [];
-      if (this.shouldIgnorePackage(importName, ignoredPackages)) {
-        continue;
-      }
+
+      // Check if it's a framework package
+      const isFramework = this.isFrameworkPackage(importName, ignoredPackages);
 
       // Check import existence cache
       let existsOnNpm = false;
@@ -136,6 +138,7 @@ export class ImportValidator {
         existsOnNpm,
         packageInfo,
         importType,
+        isFramework,
       });
     }
 
@@ -143,6 +146,43 @@ export class ImportValidator {
     this.documentImportsCache.set(documentUri, { results, timestamp: now });
 
     return results;
+  }
+
+  // Add a new method to check if a package is a framework package
+  private isFrameworkPackage(
+    packageName: string,
+    ignoredPackages: string[]
+  ): boolean {
+    // Check exact matches
+    if (ignoredPackages.includes(packageName)) {
+      return true;
+    }
+
+    // Check wildcard patterns
+    for (const pattern of ignoredPackages) {
+      if (pattern.includes("*")) {
+        const regexPattern = pattern.replace(/\./g, "\\.").replace(/\*/g, ".*");
+        if (new RegExp(`^${regexPattern}$`).test(packageName)) {
+          return true;
+        }
+      }
+    }
+
+    // Common framework prefixes
+    const frameworkPrefixes = [
+      "react-",
+      "angular",
+      "@angular/",
+      "next",
+      "vue",
+      "@vue/",
+      "nuxt",
+      "svelte",
+      "@mui/",
+      "@material-ui/",
+    ];
+
+    return frameworkPrefixes.some((prefix) => packageName.startsWith(prefix));
   }
 
   // Check if a package should be ignored based on configuration
@@ -249,7 +289,15 @@ export class ImportValidator {
     }[]
   ): void {
     try {
-      const ast = parseModule(text, { jsx: true, tolerant: true, loc: true });
+      // Try to parse with different options if the default fails
+      let ast;
+      try {
+        ast = parseModule(text, { jsx: true, tolerant: true, loc: true });
+      } catch (parseError) {
+        // If JSX parsing fails, try without JSX
+        console.log("JSX parsing failed, trying without JSX support");
+        ast = parseModule(text, { tolerant: true, loc: true });
+      }
 
       for (const node of ast.body) {
         if (
@@ -287,7 +335,47 @@ export class ImportValidator {
         }
       }
     } catch (error) {
-      console.error("Error parsing ES6 imports:", error);
+      console.error(
+        `Error parsing ES6 imports in file: ${document.uri.fsPath}`
+      );
+      console.error(
+        `Error details: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+      console.error(`Document content sample: ${text.substring(0, 200)}...`);
+
+      // Try a more tolerant approach if esprima fails
+      try {
+        // Simple regex-based fallback for import statements
+        const importRegex =
+          /import\s+(?:(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)(?:\s*,\s*(?:\{[^}]*\}|\*\s+as\s+\w+|\w+))*\s+from\s+)?['"]([^'"]+)['"]/g;
+        let match;
+        while ((match = importRegex.exec(text)) !== null) {
+          const importPath = match[1];
+
+          // Skip relative imports
+          if (this.isLocalImport(importPath)) {
+            continue;
+          }
+
+          // Handle scoped packages and submodules
+          const packageName = this.extractPackageName(importPath);
+
+          // Create a range for the import statement
+          const startPos = document.positionAt(match.index);
+          const endPos = document.positionAt(match.index + match[0].length);
+          const range = new vscode.Range(startPos, endPos);
+
+          imports.push({
+            importName: packageName,
+            range,
+            importType: "import",
+          });
+        }
+      } catch (fallbackError) {
+        console.error("Fallback import parsing also failed:", fallbackError);
+      }
     }
   }
 

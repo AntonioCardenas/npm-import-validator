@@ -6,15 +6,22 @@ export class DiagnosticsManager {
   private extensionId = "npm-import-validator";
 
   constructor() {
-    this.diagnosticCollection = vscode.languages.createDiagnosticCollection(this.extensionId);
+    this.diagnosticCollection = vscode.languages.createDiagnosticCollection(
+      this.extensionId
+    );
   }
 
   // Update diagnostics for a document
-  updateDiagnostics(document: vscode.TextDocument, results: ImportResult[]): void {
+  updateDiagnostics(
+    document: vscode.TextDocument,
+    results: ImportResult[]
+  ): void {
     const diagnostics: vscode.Diagnostic[] = [];
 
     // Get severity level from configuration
-    const severityLevel = vscode.workspace.getConfiguration("npmImportValidator").get("severityLevel");
+    const severityLevel = vscode.workspace
+      .getConfiguration("npmImportValidator")
+      .get("severityLevel");
     let severity: vscode.DiagnosticSeverity;
 
     switch (severityLevel) {
@@ -30,9 +37,31 @@ export class DiagnosticsManager {
         break;
     }
 
+    // Get framework severity level - default to "info" for framework packages
+    const frameworkSeverityLevel =
+      vscode.workspace
+        .getConfiguration("npmImportValidator")
+        .get("frameworkSeverityLevel") || "info";
+    let frameworkSeverity: vscode.DiagnosticSeverity;
+
+    switch (frameworkSeverityLevel) {
+      case "error":
+        frameworkSeverity = vscode.DiagnosticSeverity.Error;
+        break;
+      case "warning":
+        frameworkSeverity = vscode.DiagnosticSeverity.Warning;
+        break;
+      case "info":
+      default:
+        frameworkSeverity = vscode.DiagnosticSeverity.Information;
+        break;
+    }
+
     // Get ignored packages
     const ignoredPackages =
-      vscode.workspace.getConfiguration("npmImportValidator").get<string[]>("ignoredPackages") || [];
+      vscode.workspace
+        .getConfiguration("npmImportValidator")
+        .get<string[]>("ignoredPackages") || [];
 
     // Create diagnostics for invalid imports
     for (const result of results) {
@@ -42,20 +71,30 @@ export class DiagnosticsManager {
       }
 
       if (!result.existsOnNpm) {
+        // Use different severity for framework packages
+        const currentSeverity = result.isFramework
+          ? frameworkSeverity
+          : severity;
+
         const diagnostic = new vscode.Diagnostic(
           result.range,
           `Import '${result.importName}' not found on npm registry`,
-          severity,
+          currentSeverity
         );
 
         diagnostic.code = {
           value: "npm-import-validator",
-          target: vscode.Uri.parse(`https://www.npmjs.com/package/${result.importName}`),
+          target: vscode.Uri.parse(
+            `https://www.npmjs.com/package/${result.importName}`
+          ),
         };
         diagnostic.source = this.extensionId;
 
-        // Add import type to the message
-        diagnostic.message = `${result.importType === "import" ? "ES6 import" : "CommonJS require"} '${result.importName}' not found on npm registry`;
+        // Add import type and framework status to the message
+        const importTypeText =
+          result.importType === "import" ? "ES6 import" : "CommonJS require";
+        const frameworkText = result.isFramework ? " (Framework package)" : "";
+        diagnostic.message = `${importTypeText} '${result.importName}' not found on npm registry${frameworkText}`;
 
         // Add code actions
         diagnostic.tags = [vscode.DiagnosticTag.Unnecessary];

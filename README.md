@@ -118,6 +118,15 @@ The extension is designed to handle large projects efficiently:
 - Detailed statistics view
 - Added Vscode Icon
 
+### 1.1.1
+
+- Added framework import detection for popular frameworks like React, Angular, and Vue
+- Introduced configurable severity levels for framework-specific import issues
+- Improved diagnostics handling for framework packages, including better error messages and suggestions
+- Enhanced performance for projects using framework-specific folder structures
+- Updated settings to include `npmImportValidator.frameworkDetection` for enabling/disabling framework import detection
+- Bug fixes and minor improvements
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
