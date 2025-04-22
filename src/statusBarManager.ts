@@ -45,6 +45,14 @@ export class StatusBarManager {
     this.statusBarItem.backgroundColor = new vscode.ThemeColor("statusBarItem.errorBackground");
   }
 
+  // Set status to processing workspace
+  setProcessingWorkspace(processed: number, total: number): void {
+    const percent = Math.min(100, Math.round((processed / Math.max(total, 1)) * 100));
+    this.statusBarItem.text = `$(sync~spin) Processing: ${percent}%`;
+    this.statusBarItem.tooltip = `Processing ${processed} of ${total} files`;
+    this.statusBarItem.backgroundColor = undefined;
+  }
+
   // Get the status bar item
   getStatusBarItem(): vscode.StatusBarItem {
     return this.statusBarItem;

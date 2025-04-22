@@ -2,7 +2,7 @@
   "name": "npm-import-validator",
   "displayName": "NPM Import Validator",
   "description": "Validates imported packages against npm registry good if your doing vibe coding",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": {
     "name": "Antonio Cárdenas",
     "email": "me@yeou.dev"
@@ -28,6 +28,18 @@
         "title": "Validate NPM Imports"
       },
       {
+        "command": "npm-import-validator.validateWorkspace",
+        "title": "Validate NPM Imports in Workspace"
+      },
+      {
+        "command": "npm-import-validator.cancelValidation",
+        "title": "Cancel NPM Import Validation"
+      },
+      {
+        "command": "npm-import-validator.clearCache",
+        "title": "Clear NPM Import Validator Cache"
+      },
+      {
         "command": "npm-import-validator.showPackageInfo",
         "title": "Show NPM Package Info"
       },
@@ -38,6 +50,10 @@
       {
         "command": "npm-import-validator.showAllImports",
         "title": "Show All NPM Imports"
+      },
+      {
+        "command": "npm-import-validator.showStats",
+        "title": "Show NPM Import Validator Statistics"
       }
     ],
     "configuration": {
@@ -72,6 +88,36 @@
           "type": "number",
           "default": 86400,
           "description": "Time in seconds to cache npm registry data (default: 24 hours)"
+        },
+        "npmImportValidator.maxFilesToProcess": {
+          "type": "number",
+          "default": 1000,
+          "description": "Maximum number of files to process in workspace scan"
+        },
+        "npmImportValidator.processingBatchSize": {
+          "type": "number",
+          "default": 20,
+          "description": "Number of files to process in parallel during workspace scan"
+        },
+        "npmImportValidator.excludePatterns": {
+          "type": "array",
+          "default": [
+            "**/node_modules/**"
+          ],
+          "description": "Glob patterns for files to exclude from validation"
+        },
+        "npmImportValidator.excludeReactNextjs": {
+          "type": "boolean",
+          "default": true,
+          "description": "Exclude React, Next.js, and their associated folders"
+        },
+        "npmImportValidator.pathAliases": {
+          "type": "array",
+          "default": [
+            "@/",
+            "~"
+          ],
+          "description": "Path aliases used in your project to identify local imports"
         }
       }
     },
@@ -99,6 +145,30 @@
           "command": "npm-import-validator.showPackageInfo",
           "when": "editorTextFocus",
           "group": "navigation"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "npm-import-validator.validateWorkspace",
+          "when": "view == npmImports",
+          "group": "navigation"
+        },
+        {
+          "command": "npm-import-validator.clearCache",
+          "when": "view == npmImports",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "npm-import-validator.showPackageInfo",
+          "when": "viewItem == import || viewItem == invalidImport",
+          "group": "inline"
+        },
+        {
+          "command": "npm-import-validator.openNpmPage",
+          "when": "viewItem == import",
+          "group": "inline"
         }
       ]
     }

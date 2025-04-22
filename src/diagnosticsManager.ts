@@ -29,8 +29,17 @@ export class DiagnosticsManager {
         break;
     }
 
+    // Get ignored packages
+    const ignoredPackages =
+      vscode.workspace.getConfiguration("npmImportValidator").get<string[]>("ignoredPackages") || [];
+
     // Create diagnostics for invalid imports
     for (const result of results) {
+      // Skip ignored packages
+      if (ignoredPackages.includes(result.importName)) {
+        continue;
+      }
+
       if (!result.existsOnNpm) {
         const diagnostic = new vscode.Diagnostic(
           result.range,
@@ -40,6 +49,12 @@ export class DiagnosticsManager {
 
         diagnostic.code = "npm-import-validator";
         diagnostic.source = "npm-import-validator";
+
+        // Add import type to the message
+        diagnostic.message = `${result.importType === "import" ? "ES6 import" : "CommonJS require"} '${result.importName}' not found on npm registry`;
+
+        // Add code actions
+        diagnostic.tags = [vscode.DiagnosticTag.Unnecessary];
 
         diagnostics.push(diagnostic);
       }
