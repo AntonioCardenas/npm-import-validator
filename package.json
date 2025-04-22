@@ -2,7 +2,7 @@
   "name": "npm-import-validator",
   "displayName": "NPM Import Validator",
   "description": "Validates imported packages against npm registry good if your doing vibe coding",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "author": {
     "name": "Antonio Cárdenas",
     "email": "me@yeou.dev"
@@ -255,12 +255,12 @@
       "view/item/context": [
         {
           "command": "npm-import-validator.showPackageInfo",
-          "when": "viewItem == import || viewItem == invalidImport",
+          "when": "viewItem == import || viewItem == invalidImport || viewItem == projectImport || viewItem == frameworkImport",
           "group": "inline"
         },
         {
           "command": "npm-import-validator.openNpmPage",
-          "when": "viewItem == import",
+          "when": "viewItem == import || viewItem == projectImport || viewItem == frameworkImport",
           "group": "inline"
         }
       ]

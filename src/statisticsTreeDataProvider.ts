@@ -22,7 +22,7 @@ export class StatisticsTreeDataProvider
     StatisticsTreeItem | undefined | null | void
   > = this._onDidChangeTreeData.event;
 
-  constructor(public fileProcessor: FileProcessor) {}
+  constructor(private fileProcessor: FileProcessor) {}
 
   refresh(): void {
     this._onDidChangeTreeData.fire();
@@ -43,6 +43,7 @@ export class StatisticsTreeDataProvider
   ): Promise<StatisticsTreeItem[]> {
     if (!element) {
       // Root level - show statistics categories
+      const _stats = this.fileProcessor.getStats();
 
       return [
         new StatisticsTreeItem(
@@ -59,6 +60,11 @@ export class StatisticsTreeDataProvider
           "Framework Statistics",
           vscode.TreeItemCollapsibleState.Expanded,
           "frameworkStats"
+        ),
+        new StatisticsTreeItem(
+          "Project Statistics",
+          vscode.TreeItemCollapsibleState.Expanded,
+          "projectStats"
         ),
         new StatisticsTreeItem(
           "Performance",
@@ -113,37 +119,22 @@ export class StatisticsTreeDataProvider
         ),
       ];
     } else if (element.contextValue === "frameworkStats") {
-      // Framework statistics - we'll need to calculate these
-      const editor = vscode.window.activeTextEditor;
-      let frameworkCount = 0;
-      let validFrameworkCount = 0;
-      let invalidFrameworkCount = 0;
-
-      if (editor) {
-        const results = await this.fileProcessor.validator.validateDocument(
-          editor.document
-        );
-        const frameworkImports = results.filter((r) => r.isFramework);
-        frameworkCount = frameworkImports.length;
-        validFrameworkCount = frameworkImports.filter(
-          (r) => r.existsOnNpm
-        ).length;
-        invalidFrameworkCount = frameworkImports.filter(
-          (r) => !r.existsOnNpm
-        ).length;
-      }
+      // Framework statistics
+      const stats = this.fileProcessor.getStats();
 
       return [
         new StatisticsTreeItem(
-          `Framework Imports: ${frameworkCount}`,
+          `Framework Imports: ${stats.frameworkImports}`,
           vscode.TreeItemCollapsibleState.None
         ),
+      ];
+    } else if (element.contextValue === "projectStats") {
+      // Project statistics
+      const stats = this.fileProcessor.getStats();
+
+      return [
         new StatisticsTreeItem(
-          `Valid Framework: ${validFrameworkCount}`,
-          vscode.TreeItemCollapsibleState.None
-        ),
-        new StatisticsTreeItem(
-          `Invalid Framework: ${invalidFrameworkCount}`,
+          `Project Imports: ${stats.projectImports}`,
           vscode.TreeItemCollapsibleState.None
         ),
       ];

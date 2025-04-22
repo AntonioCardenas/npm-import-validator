@@ -107,7 +107,7 @@ export class ImportsTreeDataProvider
 
       const results = await this.validator.validateDocument(editor.document);
 
-      // Group by validity, type, and framework status
+      // Group by validity, type, framework status, and project status
       const validImports = results.filter(
         (r) => r.existsOnNpm && !r.isFramework
       );
@@ -115,12 +115,7 @@ export class ImportsTreeDataProvider
         (r) => !r.existsOnNpm && !r.isFramework
       );
       const frameworkImports = results.filter((r) => r.isFramework);
-      const _validFrameworkImports = frameworkImports.filter(
-        (r) => r.existsOnNpm
-      );
-      const _invalidFrameworkImports = frameworkImports.filter(
-        (r) => !r.existsOnNpm
-      );
+      const projectImports = results.filter((r) => r.isInProject);
 
       // Count by type
       const esImports = results.filter((r) => r.importType === "import").length;
@@ -140,6 +135,18 @@ export class ImportsTreeDataProvider
         );
         typesItem.tooltip = "Breakdown of import types in this file";
         items.push(typesItem);
+      }
+
+      // Add project imports section
+      if (projectImports.length > 0) {
+        items.push(
+          new ImportsTreeItem(
+            `Project Imports (${projectImports.length})`,
+            vscode.TreeItemCollapsibleState.Collapsed,
+            undefined,
+            "projectImports"
+          )
+        );
       }
 
       // Add framework imports section
@@ -177,6 +184,39 @@ export class ImportsTreeDataProvider
       }
 
       return items;
+    } else if (element.contextValue === "projectImports") {
+      // Show project imports
+      const editor = vscode.window.activeTextEditor;
+      if (!editor) {
+        return [];
+      }
+
+      const results = await this.validator.validateDocument(editor.document);
+      const projectImports = results.filter((r) => r.isInProject);
+
+      return projectImports.map((result) => {
+        const command = {
+          command: "npm-import-validator.showPackageInfo",
+          title: "Show Package Info",
+          arguments: [result.importName],
+        };
+
+        const item = new ImportsTreeItem(
+          result.importName,
+          vscode.TreeItemCollapsibleState.None,
+          result,
+          "projectImport",
+          command
+        );
+
+        item.description = `${result.packageInfo?.version || ""} (${
+          result.importType
+        })`;
+        item.tooltip = "Package found in project dependencies";
+        item.iconPath = new vscode.ThemeIcon("package-installed");
+
+        return item;
+      });
     } else if (element.contextValue === "frameworkImports") {
       // Show framework imports
       const editor = vscode.window.activeTextEditor;
@@ -413,6 +453,17 @@ export class ImportsTreeDataProvider
         new ImportsTreeItem(
           `Total Imports: ${stats.totalImports}`,
           vscode.TreeItemCollapsibleState.None
+        ),
+        new ImportsTreeItem(
+          `Project Imports: ${stats.projectImports}`,
+          vscode.TreeItemCollapsibleState.None,
+          undefined,
+          undefined,
+          {
+            command: "npm-import-validator.showAllImports",
+            title: "Show All Imports",
+            arguments: [],
+          }
         ),
         new ImportsTreeItem(
           `Valid Imports: ${stats.validImports}`,

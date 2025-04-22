@@ -8,6 +8,8 @@ import { ImportsTreeDataProvider } from "./importsTreeDataProvider";
 import { CodeLensProvider } from "./codeLensProvider";
 import { FileProcessor } from "./fileProcessor";
 import { ensureActivation } from "./activation";
+import { StatisticsTreeDataProvider } from "./statisticsTreeDataProvider";
+import { SettingsTreeDataProvider } from "./settingsTreeDataProvider";
 
 // Extension activation
 export async function activate(context: vscode.ExtensionContext) {
@@ -41,19 +43,39 @@ export async function activate(context: vscode.ExtensionContext) {
     validator,
     fileProcessor
   );
+  const statisticsTreeDataProvider = new StatisticsTreeDataProvider(
+    fileProcessor
+  );
+  const settingsTreeDataProvider = new SettingsTreeDataProvider();
   const codeLensProvider = new CodeLensProvider(validator, packageInfoProvider);
 
-  // Register tree view
-  const treeView = vscode.window.createTreeView("npmImports", {
+  // Register tree views
+  const importsTreeView = vscode.window.createTreeView("npmImports", {
     treeDataProvider: importsTreeDataProvider,
     showCollapseAll: true,
   });
 
-  // Store the tree view in context.subscriptions to ensure proper disposal
-  context.subscriptions.push(treeView);
+  const statisticsTreeView = vscode.window.createTreeView("npmStatistics", {
+    treeDataProvider: statisticsTreeDataProvider,
+    showCollapseAll: true,
+  });
 
-  // Make sure the tree data provider is properly initialized
+  const settingsTreeView = vscode.window.createTreeView("npmSettings", {
+    treeDataProvider: settingsTreeDataProvider,
+    showCollapseAll: true,
+  });
+
+  // Store the tree views in context.subscriptions to ensure proper disposal
+  context.subscriptions.push(
+    importsTreeView,
+    statisticsTreeView,
+    settingsTreeView
+  );
+
+  // Make sure the tree data providers are properly initialized
   importsTreeDataProvider.refresh();
+  statisticsTreeDataProvider.refresh();
+  settingsTreeDataProvider.refresh();
 
   // Register code lens provider
   context.subscriptions.push(
@@ -77,6 +99,7 @@ export async function activate(context: vscode.ExtensionContext) {
         if (editor && isValidFileType(editor.document)) {
           await fileProcessor.processFile(editor.document);
           importsTreeDataProvider.refresh();
+          statisticsTreeDataProvider.refresh();
         } else {
           vscode.window.showInformationMessage(
             "No active JavaScript or TypeScript file to validate."
@@ -93,9 +116,11 @@ export async function activate(context: vscode.ExtensionContext) {
         const stats = await fileProcessor.processWorkspace(true);
         vscode.window.showInformationMessage(
           `Validation complete: ${stats.processedFiles} files processed, ` +
-            `${stats.totalImports} imports found, ${stats.invalidImports} invalid imports.`
+            `${stats.totalImports} imports found, ${stats.invalidImports} invalid imports, ` +
+            `${stats.projectImports} project imports.`
         );
         importsTreeDataProvider.refresh();
+        statisticsTreeDataProvider.refresh();
       }
     )
   );
@@ -224,46 +249,75 @@ export async function activate(context: vscode.ExtensionContext) {
               color: var(--vscode-descriptionForeground);
               margin-top: 5px;
             }
+            .section {
+              margin-bottom: 30px;
+            }
+            .section-title {
+              font-size: 18px;
+              font-weight: bold;
+              margin-bottom: 15px;
+              color: var(--vscode-descriptionForeground);
+            }
           </style>
         </head>
         <body>
           <h1>NPM Import Validator Statistics</h1>
           
-          <div class="grid">
-            <div class="stat-card">
-              <div class="stat-title">Total Files</div>
-              <div class="stat-value">${stats.totalFiles}</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-title">Processed Files</div>
-              <div class="stat-value">${stats.processedFiles}</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-title">Skipped Files</div>
-              <div class="stat-value">${stats.skippedFiles}</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-title">Total Imports</div>
-              <div class="stat-value">${stats.totalImports}</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-title">Valid Imports</div>
-              <div class="stat-value">${stats.validImports}</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-title">Invalid Imports</div>
-              <div class="stat-value">${stats.invalidImports}</div>
+          <div class="section">
+            <div class="section-title">FILE STATISTICS</div>
+            <div class="grid">
+              <div class="stat-card">
+                <div class="stat-title">Total Files</div>
+                <div class="stat-value">${stats.totalFiles}</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-title">Processed Files</div>
+                <div class="stat-value">${stats.processedFiles}</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-title">Skipped Files</div>
+                <div class="stat-value">${stats.skippedFiles}</div>
+              </div>
             </div>
           </div>
           
-          <div class="stat-card">
-            <div class="stat-title">Processing Progress</div>
-            <div class="progress-container">
-              <div class="progress-bar"></div>
+          <div class="section">
+            <div class="section-title">IMPORT STATISTICS</div>
+            <div class="grid">
+              <div class="stat-card">
+                <div class="stat-title">Total Imports</div>
+                <div class="stat-value">${stats.totalImports}</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-title">Valid Imports</div>
+                <div class="stat-value">${stats.validImports}</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-title">Invalid Imports</div>
+                <div class="stat-value">${stats.invalidImports}</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-title">Project Imports</div>
+                <div class="stat-value">${stats.projectImports}</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-title">Framework Imports</div>
+                <div class="stat-value">${stats.frameworkImports}</div>
+              </div>
             </div>
-            <div class="time">Processing time: ${Math.round(
-              stats.processingTime
-            )}ms</div>
+          </div>
+          
+          <div class="section">
+            <div class="section-title">PROCESSING PROGRESS</div>
+            <div class="stat-card">
+              <div class="stat-title">Processing Progress</div>
+              <div class="progress-container">
+                <div class="progress-bar"></div>
+              </div>
+              <div class="time">Processing time: ${Math.round(
+                stats.processingTime
+              )}ms</div>
+            </div>
           </div>
         </body>
         </html>
@@ -289,6 +343,7 @@ export async function activate(context: vscode.ExtensionContext) {
         ) {
           fileProcessor.processFile(document);
           importsTreeDataProvider.refresh();
+          statisticsTreeDataProvider.refresh();
         }
       })
     );
@@ -307,6 +362,7 @@ export async function activate(context: vscode.ExtensionContext) {
         ) {
           fileProcessor.processFile(document);
           importsTreeDataProvider.refresh();
+          statisticsTreeDataProvider.refresh();
         }
       })
     );
@@ -321,6 +377,7 @@ export async function activate(context: vscode.ExtensionContext) {
         fileProcessor.shouldProcessFile(editor.document.uri.fsPath)
       ) {
         importsTreeDataProvider.refresh();
+        statisticsTreeDataProvider.refresh();
       }
     })
   );
@@ -334,8 +391,18 @@ export async function activate(context: vscode.ExtensionContext) {
     ) {
       fileProcessor.processFile(document);
       importsTreeDataProvider.refresh();
+      statisticsTreeDataProvider.refresh();
     }
   }
+
+  // Register disposable for cleanup
+  context.subscriptions.push({
+    dispose: () => {
+      if (packageInfoProvider.dispose) {
+        packageInfoProvider.dispose();
+      }
+    },
+  });
 }
 
 // Check if the document is a JavaScript or TypeScript file

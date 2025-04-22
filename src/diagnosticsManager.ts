@@ -70,6 +70,11 @@ export class DiagnosticsManager {
         continue;
       }
 
+      // Skip packages that are in the project
+      if (result.isInProject) {
+        continue;
+      }
+
       if (!result.existsOnNpm) {
         // Use different severity for framework packages
         const currentSeverity = result.isFramework

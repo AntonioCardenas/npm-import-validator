@@ -12,6 +12,8 @@ interface ProcessingStats {
   totalImports: number;
   validImports: number;
   invalidImports: number;
+  projectImports: number;
+  frameworkImports: number;
   processingTime: number;
 }
 
@@ -23,13 +25,15 @@ export class FileProcessor {
   private isProcessing = false;
   private abortController: AbortController | null = null;
   private extensionContext: vscode.ExtensionContext;
+  public validator: ImportValidator; // Made public for statistics provider
 
   constructor(
-    public validator: ImportValidator,
+    validator: ImportValidator,
     private diagnosticsManager: DiagnosticsManager,
     private statusBarManager: StatusBarManager,
     context: vscode.ExtensionContext
   ) {
+    this.validator = validator;
     this.extensionContext = context;
   }
 
@@ -41,6 +45,8 @@ export class FileProcessor {
       totalImports: 0,
       validImports: 0,
       invalidImports: 0,
+      projectImports: 0,
+      frameworkImports: 0,
       processingTime: 0,
     };
   }
@@ -66,7 +72,12 @@ export class FileProcessor {
 
     try {
       const startTime = performance.now();
-      let results: { importName: string; existsOnNpm: boolean }[];
+      let results: {
+        importName: string;
+        existsOnNpm: boolean;
+        isInProject: boolean;
+        isFramework: boolean;
+      }[];
 
       try {
         results = await this.validator.validateDocument(document);
@@ -95,6 +106,10 @@ export class FileProcessor {
       this.stats.totalImports += results.length;
       this.stats.validImports += results.filter((r) => r.existsOnNpm).length;
       this.stats.invalidImports += results.filter((r) => !r.existsOnNpm).length;
+      this.stats.projectImports += results.filter((r) => r.isInProject).length;
+      this.stats.frameworkImports += results.filter(
+        (r) => r.isFramework
+      ).length;
       this.stats.processingTime += endTime - startTime;
 
       // Cache imports for this file
@@ -102,14 +117,16 @@ export class FileProcessor {
       this.fileImportCache.set(filePath, importNames);
 
       // Update diagnostics
-      const enrichedResults = results.map((result) => ({
-        ...result,
-        range: new vscode.Range(0, 0, 0, 0), // Replace with actual range logic
+      const formattedResults = results.map((r) => ({
+        ...r,
+        range: new vscode.Range(
+          new vscode.Position(0, 0),
+          new vscode.Position(0, 0)
+        ), // Replace with actual range
         packageInfo: null, // Replace with actual package info if available
-        importType: "import" as "import" | "require", // Replace with actual import type logic
-        isFramework: false, // Replace with actual framework detection logic
+        importType: "import" as "import" | "require", // Replace with actual import type if available
       }));
-      this.diagnosticsManager.updateDiagnostics(document, enrichedResults);
+      this.diagnosticsManager.updateDiagnostics(document, formattedResults);
 
       // Update status bar
       const invalidCount = results.filter((r) => !r.existsOnNpm).length;
@@ -316,6 +333,8 @@ export class FileProcessor {
       - Total imports: ${this.stats.totalImports}
       - Valid imports: ${this.stats.validImports}
       - Invalid imports: ${this.stats.invalidImports}
+      - Project imports: ${this.stats.projectImports}
+      - Framework imports: ${this.stats.frameworkImports}
       - Processing time: ${Math.round(this.stats.processingTime)}ms
     `);
 

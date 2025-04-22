@@ -10,6 +10,7 @@ export interface ImportResult {
   packageInfo: PackageInfo | null;
   importType: "import" | "require";
   isFramework: boolean; // New property to identify framework packages
+  isInProject: boolean; // New property to identify if the package is in the project
 }
 
 export interface PackageInfo {
@@ -22,6 +23,7 @@ export interface PackageInfo {
   author: string;
   keywords: string[];
   downloads: number;
+  isInProject?: boolean; // Optional property to indicate if the package is in the project
 }
 
 interface ImportCache {
@@ -33,10 +35,10 @@ export class ImportValidator {
   private documentImportsCache: Map<string, ImportCache> = new Map();
   private importExistenceCache: Map<
     string,
-    { exists: boolean; timestamp: number }
+    { exists: boolean; timestamp: number; isInProject: boolean }
   > = new Map();
   private circularDependencyDetector: Set<string> = new Set();
-  private processingTimeout = 5000; // 5 seconds timeout for processing a file
+  private processingTimeout = 10000; // 10 seconds timeout for processing a file
 
   constructor(private packageInfoProvider: PackageInfoProvider) {}
 
@@ -76,6 +78,10 @@ export class ImportValidator {
       // Check if it's a framework package
       const isFramework = this.isFrameworkPackage(importName, ignoredPackages);
 
+      // Check if package is in project
+      const isInProject =
+        this.packageInfoProvider.isPackageInProject(importName);
+
       // Check import existence cache
       let existsOnNpm = false;
       let packageInfo = null;
@@ -87,7 +93,7 @@ export class ImportValidator {
         }
         if (now - cache.timestamp < cacheTimeout * 1000) {
           existsOnNpm = cache.exists;
-          if (existsOnNpm) {
+          if (existsOnNpm || cache.isInProject) {
             packageInfo = await this.packageInfoProvider.getPackageInfo(
               importName
             );
@@ -97,29 +103,37 @@ export class ImportValidator {
 
       if (!this.importExistenceCache.has(importName)) {
         try {
-          // Set timeout for package info retrieval
-          const timeoutPromise = new Promise<null>((_, reject) => {
-            setTimeout(
-              () =>
-                reject(
-                  new Error(`Timeout getting package info for ${importName}`)
-                ),
-              this.processingTimeout
+          // If the package is in the project, we can assume it exists
+          if (isInProject) {
+            existsOnNpm = true;
+            packageInfo = await this.packageInfoProvider.getPackageInfo(
+              importName
             );
-          });
+          } else {
+            // Set timeout for package info retrieval
+            const timeoutPromise = new Promise<null>((_, reject) => {
+              setTimeout(
+                () =>
+                  reject(
+                    new Error(`Timeout getting package info for ${importName}`)
+                  ),
+                this.processingTimeout
+              );
+            });
 
-          // Get package info with timeout
-          packageInfo = await Promise.race([
-            this.packageInfoProvider.getPackageInfo(importName),
-            timeoutPromise,
-          ]);
-
-          existsOnNpm = packageInfo !== null;
+            // Get package info with timeout
+            packageInfo = await Promise.race([
+              this.packageInfoProvider.getPackageInfo(importName),
+              timeoutPromise,
+            ]);
+            existsOnNpm = packageInfo !== null;
+          }
 
           // Cache the result
           this.importExistenceCache.set(importName, {
             exists: existsOnNpm,
             timestamp: now,
+            isInProject,
           });
         } catch (error) {
           console.error(`Error validating import ${importName}:`, error);
@@ -128,6 +142,7 @@ export class ImportValidator {
           this.importExistenceCache.set(importName, {
             exists: false,
             timestamp: now,
+            isInProject,
           });
         }
       }
@@ -139,6 +154,7 @@ export class ImportValidator {
         packageInfo,
         importType,
         isFramework,
+        isInProject,
       });
     }
 
