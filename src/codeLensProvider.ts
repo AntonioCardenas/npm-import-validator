@@ -5,16 +5,20 @@ import type { PackageInfoProvider } from "./packageInfoProvider";
 export class CodeLensProvider implements vscode.CodeLensProvider {
   constructor(
     private validator: ImportValidator,
-    private packageInfoProvider: PackageInfoProvider,
+    private packageInfoProvider: PackageInfoProvider
   ) {}
 
-  async provideCodeLenses(document: vscode.TextDocument): Promise<vscode.CodeLens[]> {
+  async provideCodeLenses(
+    document: vscode.TextDocument
+  ): Promise<vscode.CodeLens[]> {
     const results = await this.validator.validateDocument(document);
     const codeLenses: vscode.CodeLens[] = [];
 
     // Get ignored packages
     const ignoredPackages =
-      vscode.workspace.getConfiguration("npmImportValidator").get<string[]>("ignoredPackages") || [];
+      vscode.workspace
+        .getConfiguration("npmImportValidator")
+        .get<string[]>("ignoredPackages") || [];
 
     for (const result of results) {
       // Skip ignored packages

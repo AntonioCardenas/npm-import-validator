@@ -61,6 +61,9 @@ export class ImportValidator {
 
     // Extract imports from the document
     const imports = this.extractImportsFromDocument(document);
+    console.log(
+      `Extracted ${imports.length} raw imports from ${document.uri.toString()}`
+    );
 
     // Validate each import with timeout protection
     const results: ImportResult[] = [];
@@ -88,10 +91,7 @@ export class ImportValidator {
 
       if (this.importExistenceCache.has(importName)) {
         const cache = this.importExistenceCache.get(importName);
-        if (!cache) {
-          continue;
-        }
-        if (now - cache.timestamp < cacheTimeout * 1000) {
+        if (cache && now - cache.timestamp < cacheTimeout * 1000) {
           existsOnNpm = cache.exists;
           if (existsOnNpm || cache.isInProject) {
             packageInfo = await this.packageInfoProvider.getPackageInfo(
@@ -269,7 +269,9 @@ export class ImportValidator {
   }
 
   // Extract imports from a document
-  private extractImportsFromDocument(document: vscode.TextDocument): {
+  private extractImportsFromDocument(
+    document: vscode.TextDocument
+  ): {
     importName: string;
     range: vscode.Range;
     importType: "import" | "require";
@@ -284,9 +286,11 @@ export class ImportValidator {
     try {
       // Extract ES6 imports
       this.extractES6Imports(text, document, imports);
+      console.log(`After ES6 extraction: ${imports.length} imports`);
 
       // Extract CommonJS requires
       this.extractCommonJSRequires(text, document, imports);
+      console.log(`After CommonJS extraction: ${imports.length} imports`);
     } catch (error) {
       console.error("Error parsing document:", error);
     }

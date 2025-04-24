@@ -25,6 +25,17 @@ export class StatisticsTreeDataProvider
   constructor(private fileProcessor: FileProcessor) {}
 
   refresh(): void {
+    // Get fresh stats from the file processor for logging
+    const stats = this.fileProcessor.getStats();
+    console.log(`Statistics refreshed: Total imports: ${stats.totalImports}`);
+
+    this._onDidChangeTreeData.fire();
+  }
+
+  // Add this method to handle explicit refresh requests
+  forceRefresh(): void {
+    console.log("Force refreshing statistics tree view");
+    // Recalculate statistics if needed
     this._onDidChangeTreeData.fire();
   }
 
@@ -43,7 +54,12 @@ export class StatisticsTreeDataProvider
   ): Promise<StatisticsTreeItem[]> {
     if (!element) {
       // Root level - show statistics categories
-      const _stats = this.fileProcessor.getStats();
+      const stats = this.fileProcessor.getStats();
+
+      // Log statistics for debugging
+      console.log(
+        `Displaying statistics: Total imports: ${stats.totalImports}, Valid: ${stats.validImports}, Invalid: ${stats.invalidImports}`
+      );
 
       return [
         new StatisticsTreeItem(
@@ -96,6 +112,10 @@ export class StatisticsTreeDataProvider
           vscode.TreeItemCollapsibleState.None
         ),
         new StatisticsTreeItem(
+          `Unchanged Files: ${stats.unchangedFiles}`,
+          vscode.TreeItemCollapsibleState.None
+        ),
+        new StatisticsTreeItem(
           `Skipped Files: ${stats.skippedFiles}`,
           vscode.TreeItemCollapsibleState.None
         ),
@@ -137,6 +157,16 @@ export class StatisticsTreeDataProvider
           `Project Imports: ${stats.projectImports}`,
           vscode.TreeItemCollapsibleState.None
         ),
+        new StatisticsTreeItem(
+          `Find Unused Dependencies`,
+          vscode.TreeItemCollapsibleState.None,
+          undefined,
+          {
+            command: "npm-import-validator.findUnusedDependencies",
+            title: "Find Unused Dependencies",
+            arguments: [],
+          }
+        ),
       ];
     } else if (element.contextValue === "performanceStats") {
       // Performance statistics
@@ -148,12 +178,22 @@ export class StatisticsTreeDataProvider
           vscode.TreeItemCollapsibleState.None
         ),
         new StatisticsTreeItem(
-          `Scan Workspace Again`,
+          `Scan All Files`,
           vscode.TreeItemCollapsibleState.None,
           undefined,
           {
             command: "npm-import-validator.validateWorkspace",
-            title: "Scan Workspace",
+            title: "Scan All Files",
+            arguments: [],
+          }
+        ),
+        new StatisticsTreeItem(
+          `Scan Changed Files Only`,
+          vscode.TreeItemCollapsibleState.None,
+          undefined,
+          {
+            command: "npm-import-validator.validateChangedFiles",
+            title: "Scan Changed Files Only",
             arguments: [],
           }
         ),

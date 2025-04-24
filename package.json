@@ -18,7 +18,7 @@
       "url": "https://github.com/"
     }
   ],
-  "icon": "resources/vscode-icon.png",
+  "icon": "resources/extension-icon.png",
   "engines": {
     "vscode": "^1.80.0"
   },
@@ -41,7 +41,15 @@
       },
       {
         "command": "npm-import-validator.validateWorkspace",
-        "title": "Validate NPM Imports in Workspace"
+        "title": "Validate NPM Imports in Workspace (All Files)"
+      },
+      {
+        "command": "npm-import-validator.validateChangedFiles",
+        "title": "Validate NPM Imports in Workspace (Changed Files Only)"
+      },
+      {
+        "command": "npm-import-validator.findUnusedDependencies",
+        "title": "Find Unused Dependencies in package.json"
       },
       {
         "command": "npm-import-validator.cancelValidation",
@@ -66,6 +74,14 @@
       {
         "command": "npm-import-validator.showStats",
         "title": "Show NPM Import Validator Statistics"
+      },
+      {
+        "command": "npm-import-validator.refreshStatistics",
+        "title": "Refresh NPM Import Statistics"
+      },
+      {
+        "command": "npm-import-validator.recalculateStatistics",
+        "title": "Recalculate NPM Import Statistics"
       }
     ],
     "configuration": {
@@ -212,7 +228,7 @@
         {
           "id": "npm-import-validator",
           "title": "NPM Import Validator",
-          "icon": "$(package)"
+          "icon": "resources/extension-icon.png"
         }
       ]
     },
@@ -221,20 +237,20 @@
         {
           "id": "npmImports",
           "name": "NPM Imports",
-          "when": "workbenchState != empty",
-          "icon": "$(package)"
+          "icon": "resources/extension-icon.png",
+          "when": "workbenchState != empty"
         },
         {
           "id": "npmStatistics",
           "name": "Import Statistics",
-          "when": "workbenchState != empty",
-          "icon": "$(graph)"
+          "icon": "resources/extension-icon.png",
+          "when": "workbenchState != empty"
         },
         {
           "id": "npmSettings",
           "name": "Validator Settings",
-          "when": "workbenchState != empty",
-          "icon": "$(settings-gear)"
+          "icon": "resources/extension-icon.png",
+          "when": "workbenchState != empty"
         }
       ]
     },
@@ -250,17 +266,37 @@
         {
           "command": "npm-import-validator.validateWorkspace",
           "when": "view == npmImports",
-          "group": "navigation"
+          "group": "navigation@1"
+        },
+        {
+          "command": "npm-import-validator.validateChangedFiles",
+          "when": "view == npmImports",
+          "group": "navigation@2"
+        },
+        {
+          "command": "npm-import-validator.findUnusedDependencies",
+          "when": "view == npmImports",
+          "group": "navigation@3"
         },
         {
           "command": "npm-import-validator.clearCache",
           "when": "view == npmImports",
-          "group": "navigation"
+          "group": "navigation@4"
         },
         {
           "command": "npm-import-validator.showStats",
           "when": "view == npmStatistics",
-          "group": "navigation"
+          "group": "navigation@1"
+        },
+        {
+          "command": "npm-import-validator.refreshStatistics",
+          "when": "view == npmStatistics",
+          "group": "navigation@2"
+        },
+        {
+          "command": "npm-import-validator.recalculateStatistics",
+          "when": "view == npmStatistics",
+          "group": "navigation@3"
         }
       ],
       "view/item/context": [

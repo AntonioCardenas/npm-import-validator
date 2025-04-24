@@ -4,11 +4,14 @@ import type { ImportValidator } from "./importValidator";
 import type { DiagnosticsManager } from "./diagnosticsManager";
 import type { StatusBarManager } from "./statusBarManager";
 import * as path from "path";
+import * as fs from "fs";
+import type { ImportResult } from "./importValidator";
 
 interface ProcessingStats {
   totalFiles: number;
   processedFiles: number;
   skippedFiles: number;
+  unchangedFiles: number;
   totalImports: number;
   validImports: number;
   invalidImports: number;
@@ -17,15 +20,23 @@ interface ProcessingStats {
   processingTime: number;
 }
 
+interface FileMetadata {
+  lastProcessed: number;
+  lastModified: number;
+  imports: string[];
+}
+
 export class FileProcessor {
   private processingQueue: Set<string> = new Set();
   private processedFiles: Set<string> = new Set();
   private fileImportCache: Map<string, Set<string>> = new Map();
+  private fileMetadataCache: Map<string, FileMetadata> = new Map();
   private stats: ProcessingStats = this.resetStats();
   private isProcessing = false;
   private abortController: AbortController | null = null;
   private extensionContext: vscode.ExtensionContext;
   public validator: ImportValidator; // Made public for statistics provider
+  private fileWatcher: vscode.FileSystemWatcher | null = null;
 
   constructor(
     validator: ImportValidator,
@@ -35,6 +46,12 @@ export class FileProcessor {
   ) {
     this.validator = validator;
     this.extensionContext = context;
+
+    // Load file metadata cache from storage
+    this.loadFileMetadataCache();
+
+    // Set up file watcher to track changes
+    this.setupFileWatcher();
   }
 
   private resetStats(): ProcessingStats {
@@ -42,6 +59,7 @@ export class FileProcessor {
       totalFiles: 0,
       processedFiles: 0,
       skippedFiles: 0,
+      unchangedFiles: 0,
       totalImports: 0,
       validImports: 0,
       invalidImports: 0,
@@ -49,6 +67,122 @@ export class FileProcessor {
       frameworkImports: 0,
       processingTime: 0,
     };
+  }
+
+  /**
+   * Load file metadata cache from storage
+   */
+  private loadFileMetadataCache(): void {
+    try {
+      const cachedData = this.extensionContext.workspaceState.get<
+        Record<string, FileMetadata>
+      >("npmImportValidatorFileMetadata");
+      if (cachedData) {
+        this.fileMetadataCache = new Map(Object.entries(cachedData));
+        console.log(
+          `Loaded metadata for ${this.fileMetadataCache.size} files from cache`
+        );
+      }
+    } catch (error) {
+      console.error("Error loading file metadata cache:", error);
+    }
+  }
+
+  /**
+   * Save file metadata cache to storage
+   */
+  private saveFileMetadataCache(): void {
+    try {
+      const cacheObject = Object.fromEntries(this.fileMetadataCache);
+      this.extensionContext.workspaceState.update(
+        "npmImportValidatorFileMetadata",
+        cacheObject
+      );
+    } catch (error) {
+      console.error("Error saving file metadata cache:", error);
+    }
+  }
+
+  /**
+   * Set up file watcher to track changes
+   */
+  private setupFileWatcher(): void {
+    if (this.fileWatcher) {
+      this.fileWatcher.dispose();
+    }
+
+    // Watch for changes to JS/TS files
+    this.fileWatcher = vscode.workspace.createFileSystemWatcher(
+      "**/*.{js,jsx,ts,tsx}"
+    );
+
+    // When a file changes, mark it for reprocessing
+    this.fileWatcher.onDidChange((uri) => {
+      const filePath = uri.fsPath;
+      if (this.fileMetadataCache.has(filePath)) {
+        const metadata = this.fileMetadataCache.get(filePath);
+        if (metadata) {
+          metadata.lastModified = Date.now();
+          this.fileMetadataCache.set(filePath, metadata);
+          this.saveFileMetadataCache();
+        }
+      }
+    });
+
+    // When a file is created, add it to the cache
+    this.fileWatcher.onDidCreate((uri) => {
+      const filePath = uri.fsPath;
+      if (!this.fileMetadataCache.has(filePath)) {
+        this.fileMetadataCache.set(filePath, {
+          lastProcessed: 0,
+          lastModified: Date.now(),
+          imports: [],
+        });
+        this.saveFileMetadataCache();
+      }
+    });
+
+    // When a file is deleted, remove it from the cache
+    this.fileWatcher.onDidDelete((uri) => {
+      const filePath = uri.fsPath;
+      if (this.fileMetadataCache.has(filePath)) {
+        this.fileMetadataCache.delete(filePath);
+        this.saveFileMetadataCache();
+      }
+    });
+  }
+
+  /**
+   * Check if a file has changed since the last scan
+   */
+  private hasFileChanged(filePath: string): boolean {
+    try {
+      // If we don't have metadata for this file, consider it changed
+      if (!this.fileMetadataCache.has(filePath)) {
+        return true;
+      }
+
+      const _metadata = this.fileMetadataCache.get(filePath);
+      if (!_metadata) {
+        return true; // If metadata doesn't exist, consider the file changed
+      }
+
+      // If we've never processed this file, consider it changed
+      if (_metadata.lastProcessed === 0) {
+        return true;
+      }
+
+      // Check if the file's modification time is newer than our last processing time
+      const stats = fs.statSync(filePath);
+      const fileModTime = stats.mtimeMs;
+
+      // If the file has been modified since we last processed it, consider it changed
+      return fileModTime > _metadata.lastProcessed;
+    } catch (error) {
+      console.error(`Error checking if file ${filePath} has changed:`, error);
+      // If there's an error, assume the file has changed to be safe
+      return true;
+    }
   }
 
   /**
@@ -67,17 +201,19 @@ export class FileProcessor {
       return;
     }
 
+    // Check if the file has changed since the last scan
+    const hasChanged = this.hasFileChanged(filePath);
+    if (!hasChanged) {
+      this.stats.unchangedFiles++;
+      return;
+    }
+
     this.processingQueue.add(filePath);
     this.statusBarManager.setValidating();
 
     try {
-      const startTime = performance.now();
-      let results: {
-        importName: string;
-        existsOnNpm: boolean;
-        isInProject: boolean;
-        isFramework: boolean;
-      }[];
+      const _startTime = performance.now();
+      let results: ImportResult[] = [];
 
       try {
         results = await this.validator.validateDocument(document);
@@ -88,9 +224,6 @@ export class FileProcessor {
         );
         this.statusBarManager.setError();
 
-        // Create an empty results array to avoid further errors
-        results = [];
-
         // Show a more specific error message
         vscode.window.showErrorMessage(
           `Error validating imports in ${path.basename(
@@ -99,7 +232,16 @@ export class FileProcessor {
         );
       }
 
-      const endTime = performance.now();
+      // Ensure we have valid results
+      if (!results) {
+        results = [];
+        console.error(`No results returned for ${document.uri.fsPath}`);
+      }
+
+      // Log the number of imports found for debugging
+      console.log(`Found ${results.length} imports in ${document.uri.fsPath}`);
+
+      const _endTime = performance.now();
 
       // Update stats
       this.stats.processedFiles++;
@@ -110,23 +252,31 @@ export class FileProcessor {
       this.stats.frameworkImports += results.filter(
         (r) => r.isFramework
       ).length;
-      this.stats.processingTime += endTime - startTime;
+
+      // Log updated stats for debugging
+      console.log(
+        `Updated stats: Total imports: ${this.stats.totalImports}, Valid: ${this.stats.validImports}, Invalid: ${this.stats.invalidImports}`
+      );
 
       // Cache imports for this file
-      const importNames = new Set(results.map((r) => r.importName));
-      this.fileImportCache.set(filePath, importNames);
+      const importNames = results.map((r) => r.importName);
+      this.fileImportCache.set(filePath, new Set(importNames));
+
+      // Update file metadata
+      try {
+        const fileStats = fs.statSync(filePath);
+        this.fileMetadataCache.set(filePath, {
+          lastProcessed: Date.now(),
+          lastModified: fileStats.mtimeMs,
+          imports: importNames,
+        });
+      } catch (error) {
+        console.error(`Error getting file stats for ${filePath}:`, error);
+      }
+      this.saveFileMetadataCache();
 
       // Update diagnostics
-      const formattedResults = results.map((r) => ({
-        ...r,
-        range: new vscode.Range(
-          new vscode.Position(0, 0),
-          new vscode.Position(0, 0)
-        ), // Replace with actual range
-        packageInfo: null, // Replace with actual package info if available
-        importType: "import" as "import" | "require", // Replace with actual import type if available
-      }));
-      this.diagnosticsManager.updateDiagnostics(document, formattedResults);
+      this.diagnosticsManager.updateDiagnostics(document, results);
 
       // Update status bar
       const invalidCount = results.filter((r) => !r.existsOnNpm).length;
@@ -150,7 +300,10 @@ export class FileProcessor {
   /**
    * Process all files in the workspace with limits and progress
    */
-  async processWorkspace(showProgress = true): Promise<ProcessingStats> {
+  async processWorkspace(
+    showProgress = true,
+    onlyChanged = true
+  ): Promise<ProcessingStats> {
     if (this.isProcessing) {
       return this.stats;
     }
@@ -181,7 +334,9 @@ export class FileProcessor {
         return await vscode.window.withProgress(
           {
             location: vscode.ProgressLocation.Notification,
-            title: "NPM Import Validator",
+            title: onlyChanged
+              ? "NPM Import Validator (Changed Files Only)"
+              : "NPM Import Validator (All Files)",
             cancellable: true,
           },
           async (progress, token) => {
@@ -197,7 +352,8 @@ export class FileProcessor {
               batchSize,
               excludePatterns,
               progress,
-              signal
+              signal,
+              onlyChanged
             );
           }
         );
@@ -208,7 +364,8 @@ export class FileProcessor {
           batchSize,
           excludePatterns,
           null,
-          signal
+          signal,
+          onlyChanged
         );
       }
     } catch (error) {
@@ -230,9 +387,10 @@ export class FileProcessor {
     batchSize: number,
     excludePatterns: string[],
     progress: vscode.Progress<{ message?: string; increment?: number }> | null,
-    signal: AbortSignal
+    signal: AbortSignal,
+    onlyChanged: boolean
   ): Promise<ProcessingStats> {
-    const startTime = performance.now();
+    const _startTime = performance.now();
 
     // Find all JS/TS files
     const allFiles: vscode.Uri[] = [];
@@ -257,14 +415,24 @@ export class FileProcessor {
       }
     }
 
-    // Limit the number of files
-    const filesToProcess = allFiles.slice(0, maxFiles);
-    this.stats.totalFiles = filesToProcess.length;
+    // Filter files if we're only processing changed files
+    let filesToProcess = allFiles.slice(0, maxFiles);
+    if (onlyChanged) {
+      filesToProcess = filesToProcess.filter((file) =>
+        this.hasFileChanged(file.fsPath)
+      );
+      if (progress) {
+        progress.report({
+          message: `Found ${filesToProcess.length} changed files out of ${allFiles.length} total files`,
+        });
+      }
+    }
+
+    this.stats.totalFiles = allFiles.length;
+    this.stats.unchangedFiles = allFiles.length - filesToProcess.length;
 
     if (progress) {
-      progress.report({
-        message: `Found ${filesToProcess.length} files to process`,
-      });
+      progress.report({ message: `Processing ${filesToProcess.length} files` });
     }
 
     // Process files in batches
@@ -322,23 +490,42 @@ export class FileProcessor {
       await new Promise((resolve) => setTimeout(resolve, 10));
     }
 
-    const endTime = performance.now();
-    this.stats.processingTime = endTime - startTime;
+    const _endTime = performance.now();
+    this.stats.processingTime = _endTime - _startTime;
 
     // Log stats
     console.log(`NPM Import Validator stats:
-      - Total files: ${this.stats.totalFiles}
-      - Processed: ${this.stats.processedFiles}
-      - Skipped: ${this.stats.skippedFiles}
-      - Total imports: ${this.stats.totalImports}
-      - Valid imports: ${this.stats.validImports}
-      - Invalid imports: ${this.stats.invalidImports}
-      - Project imports: ${this.stats.projectImports}
-      - Framework imports: ${this.stats.frameworkImports}
-      - Processing time: ${Math.round(this.stats.processingTime)}ms
-    `);
+    - Total files: ${this.stats.totalFiles}
+    - Unchanged files: ${this.stats.unchangedFiles}
+    - Processed: ${this.stats.processedFiles}
+    - Skipped: ${this.stats.skippedFiles}
+    - Total imports: ${this.stats.totalImports}
+    - Valid imports: ${this.stats.validImports}
+    - Invalid imports: ${this.stats.invalidImports}
+    - Project imports: ${this.stats.projectImports}
+    - Framework imports: ${this.stats.frameworkImports}
+    - Processing time: ${Math.round(this.stats.processingTime)}ms
+  `);
 
     return this.stats;
+  }
+
+  /**
+   * Get all imports from all processed files
+   */
+  getAllImports(): Set<string> {
+    const allImports = new Set<string>();
+
+    // Collect imports from file metadata cache
+    for (const metadata of this.fileMetadataCache.values()) {
+      if (metadata.imports && Array.isArray(metadata.imports)) {
+        metadata.imports.forEach((importName: string) =>
+          allImports.add(importName)
+        );
+      }
+    }
+
+    return allImports;
   }
 
   /**
@@ -444,7 +631,7 @@ export class FileProcessor {
    */
   shouldProcessFile(filePath: string): boolean {
     // Skip non-JS/TS files
-    if (!filePath.match(/\.(js|jsx|ts|tsx)$/i)) {
+    if (!filePath.match(/\.(js|jsx,ts,tsx)$/i)) {
       return false;
     }
 
@@ -530,6 +717,71 @@ export class FileProcessor {
   clearCaches(): void {
     this.processedFiles.clear();
     this.fileImportCache.clear();
+    this.fileMetadataCache.clear();
+    this.saveFileMetadataCache();
     this.validator.clearCaches();
+  }
+
+  /**
+   * Dispose resources
+   */
+  dispose(): void {
+    if (this.fileWatcher) {
+      this.fileWatcher.dispose();
+    }
+  }
+
+  /**
+   * Reset statistics to initial values
+   */
+  public resetStatistics(): void {
+    this.stats = this.resetStats();
+    console.log("Statistics reset to initial values");
+  }
+
+  /**
+   * Recalculate statistics from processed files
+   */
+  public async recalculateStatistics(): Promise<void> {
+    // Reset statistics
+    this.resetStatistics();
+
+    // Get all processed files
+    const processedFilePaths = Array.from(this.processedFiles);
+    console.log(
+      `Recalculating statistics for ${processedFilePaths.length} processed files`
+    );
+
+    // Process each file again to update statistics
+    for (const _filePath of processedFilePaths) {
+      try {
+        const document = await vscode.workspace.openTextDocument(
+          vscode.Uri.file(_filePath)
+        );
+        const results = await this.validator.validateDocument(document);
+
+        // Update statistics
+        this.stats.totalImports += results.length;
+        this.stats.validImports += results.filter((r) => r.existsOnNpm).length;
+        this.stats.invalidImports += results.filter(
+          (r) => !r.existsOnNpm
+        ).length;
+        this.stats.projectImports += results.filter(
+          (r) => r.isInProject
+        ).length;
+        this.stats.frameworkImports += results.filter(
+          (r) => r.isFramework
+        ).length;
+      } catch (error) {
+        console.error(
+          `Error recalculating statistics for ${_filePath}:`,
+          error
+        );
+      }
+    }
+
+    console.log(
+      `Statistics recalculation complete: Total imports: ${this.stats.totalImports}`
+    );
   }
 }

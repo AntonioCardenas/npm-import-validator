@@ -1,6 +1,5 @@
-// @ts-check
-const path = require("path")
-const webpack = require("webpack")
+const path = require("path");
+const webpack = require("webpack");
 
 /**
  * @type {import('webpack').Configuration}
@@ -8,9 +7,12 @@ const webpack = require("webpack")
  */
 module.exports = (env, argv) => {
   // Determine if we're in production mode
-  const isProduction = argv.mode === "production" || process.env.NODE_ENV === "production"
+  const isProduction =
+    argv.mode === "production" || process.env.NODE_ENV === "production";
 
-  console.log(`Building in ${isProduction ? "production" : "development"} mode`)
+  console.log(
+    `Building in ${isProduction ? "production" : "development"} mode`
+  );
 
   return {
     // Set the appropriate mode
@@ -75,7 +77,9 @@ module.exports = (env, argv) => {
     plugins: [
       // Define environment variables
       new webpack.DefinePlugin({
-        "process.env.NODE_ENV": JSON.stringify(isProduction ? "production" : "development"),
+        "process.env.NODE_ENV": JSON.stringify(
+          isProduction ? "production" : "development"
+        ),
       }),
       // Add progress indicator
       new webpack.ProgressPlugin(),
@@ -109,5 +113,5 @@ module.exports = (env, argv) => {
     infrastructureLogging: {
       level: "info",
     },
-  }
-}
+  };
+};

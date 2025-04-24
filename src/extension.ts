@@ -10,6 +10,7 @@ import { FileProcessor } from "./fileProcessor";
 import { ensureActivation } from "./activation";
 import { StatisticsTreeDataProvider } from "./statisticsTreeDataProvider";
 import { SettingsTreeDataProvider } from "./settingsTreeDataProvider";
+import { DependencyManager } from "./dependencyManager";
 
 // Extension activation
 export async function activate(context: vscode.ExtensionContext) {
@@ -48,8 +49,27 @@ export async function activate(context: vscode.ExtensionContext) {
   );
   const settingsTreeDataProvider = new SettingsTreeDataProvider();
   const codeLensProvider = new CodeLensProvider(validator, packageInfoProvider);
+  const dependencyManager = new DependencyManager(fileProcessor);
 
-  // Register tree views
+  // Set context to ensure views are visible
+  await vscode.commands.executeCommand(
+    "setContext",
+    "npmImportValidatorReady",
+    true
+  );
+
+  // Register tree data providers directly
+  vscode.window.registerTreeDataProvider("npmImports", importsTreeDataProvider);
+  vscode.window.registerTreeDataProvider(
+    "npmStatistics",
+    statisticsTreeDataProvider
+  );
+  vscode.window.registerTreeDataProvider(
+    "npmSettings",
+    settingsTreeDataProvider
+  );
+
+  // Register tree views with the registered providers
   const importsTreeView = vscode.window.createTreeView("npmImports", {
     treeDataProvider: importsTreeDataProvider,
     showCollapseAll: true,
@@ -113,7 +133,10 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand(
       "npm-import-validator.validateWorkspace",
       async () => {
-        const stats = await fileProcessor.processWorkspace(true);
+        // Reset statistics before processing
+        fileProcessor.resetStatistics();
+
+        const stats = await fileProcessor.processWorkspace(true, false); // Process all files
         vscode.window.showInformationMessage(
           `Validation complete: ${stats.processedFiles} files processed, ` +
             `${stats.totalImports} imports found, ${stats.invalidImports} invalid imports, ` +
@@ -121,6 +144,34 @@ export async function activate(context: vscode.ExtensionContext) {
         );
         importsTreeDataProvider.refresh();
         statisticsTreeDataProvider.refresh();
+      }
+    )
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "npm-import-validator.validateChangedFiles",
+      async () => {
+        // Reset statistics before processing
+        fileProcessor.resetStatistics();
+
+        const stats = await fileProcessor.processWorkspace(true, true); // Process only changed files
+        vscode.window.showInformationMessage(
+          `Validation complete: ${stats.processedFiles} files processed, ` +
+            `${stats.unchangedFiles} unchanged files skipped, ` +
+            `${stats.totalImports} imports found, ${stats.invalidImports} invalid imports.`
+        );
+        importsTreeDataProvider.refresh();
+        statisticsTreeDataProvider.refresh();
+      }
+    )
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "npm-import-validator.findUnusedDependencies",
+      async () => {
+        await dependencyManager.showUnusedDependencies();
       }
     )
   );
@@ -275,6 +326,10 @@ export async function activate(context: vscode.ExtensionContext) {
                 <div class="stat-value">${stats.processedFiles}</div>
               </div>
               <div class="stat-card">
+                <div class="stat-title">Unchanged Files</div>
+                <div class="stat-value">${stats.unchangedFiles}</div>
+              </div>
+              <div class="stat-card">
                 <div class="stat-title">Skipped Files</div>
                 <div class="stat-value">${stats.skippedFiles}</div>
               </div>
@@ -322,6 +377,40 @@ export async function activate(context: vscode.ExtensionContext) {
         </body>
         </html>
       `;
+      }
+    )
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "npm-import-validator.refreshStatistics",
+      () => {
+        // Use the standard refresh method
+        statisticsTreeDataProvider.refresh();
+        vscode.window.showInformationMessage("Statistics refreshed.");
+      }
+    )
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "npm-import-validator.recalculateStatistics",
+      async () => {
+        await vscode.window.withProgress(
+          {
+            location: vscode.ProgressLocation.Notification,
+            title: "Recalculating NPM Import Statistics",
+            cancellable: false,
+          },
+          async (progress) => {
+            progress.report({ message: "Recalculating statistics..." });
+            await fileProcessor.recalculateStatistics();
+            // Use the standard refresh method
+            statisticsTreeDataProvider.refresh();
+            importsTreeDataProvider.refresh();
+          }
+        );
+        vscode.window.showInformationMessage("Statistics recalculated.");
       }
     )
   );
@@ -400,6 +489,9 @@ export async function activate(context: vscode.ExtensionContext) {
     dispose: () => {
       if (packageInfoProvider.dispose) {
         packageInfoProvider.dispose();
+      }
+      if (fileProcessor.dispose) {
+        fileProcessor.dispose();
       }
     },
   });

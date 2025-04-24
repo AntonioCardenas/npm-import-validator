@@ -118,8 +118,19 @@ export class DiagnosticsManager {
   }
 
   // Get diagnostics for a document
-  getDiagnostics(document: vscode.TextDocument): vscode.Diagnostic[] {
-    return Array.from(this.diagnosticCollection.get(document.uri) || []);
+  getDiagnostics(document: vscode.TextDocument): readonly vscode.Diagnostic[] {
+    return this.diagnosticCollection.get(document.uri) || [];
+  }
+
+  // Alternative fix: Create a new mutable array from the readonly array
+  // This approach is useful if you need to modify the diagnostics after getting them
+  getMutableDiagnostics(document: vscode.TextDocument): vscode.Diagnostic[] {
+    const readonlyDiagnostics = this.diagnosticCollection.get(document.uri);
+    if (!readonlyDiagnostics) {
+      return [];
+    }
+    // Create a new mutable array by spreading the readonly array
+    return [...readonlyDiagnostics];
   }
 
   // Dispose of the diagnostic collection

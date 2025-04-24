@@ -14,12 +14,32 @@ export async function ensureActivation(): Promise<boolean> {
     }
 
     // Check if we're in a workspace
-    if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
+    if (
+      !vscode.workspace.workspaceFolders ||
+      vscode.workspace.workspaceFolders.length === 0
+    ) {
       console.log("No workspace folders found, some features may be limited");
+      // Set context to indicate we're not in a workspace
+      await vscode.commands.executeCommand(
+        "setContext",
+        "workbenchState",
+        "empty"
+      );
+    } else {
+      // Set context to indicate we're in a workspace
+      await vscode.commands.executeCommand(
+        "setContext",
+        "workbenchState",
+        "workspace"
+      );
     }
 
     // Ensure the extension is ready
-    await vscode.commands.executeCommand("setContext", "npmImportValidatorReady", true);
+    await vscode.commands.executeCommand(
+      "setContext",
+      "npmImportValidatorReady",
+      true
+    );
 
     return true;
   } catch (error) {

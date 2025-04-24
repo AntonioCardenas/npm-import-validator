@@ -4,7 +4,10 @@ export class StatusBarManager {
   private statusBarItem: vscode.StatusBarItem;
 
   constructor() {
-    this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+    this.statusBarItem = vscode.window.createStatusBarItem(
+      vscode.StatusBarAlignment.Right,
+      100
+    );
     this.statusBarItem.command = "npm-import-validator.validateImports";
     this.statusBarItem.show();
     this.setIdle();
@@ -33,21 +36,33 @@ export class StatusBarManager {
 
   // Set status to invalid imports
   setInvalidImports(count: number): void {
-    this.statusBarItem.text = `$(alert) ${count} Invalid NPM Import${count === 1 ? "" : "s"}`;
-    this.statusBarItem.tooltip = `${count} Import${count === 1 ? "" : "s"} not found on npm registry. Click to validate again.`;
-    this.statusBarItem.backgroundColor = new vscode.ThemeColor("statusBarItem.warningBackground");
+    this.statusBarItem.text = `$(alert) ${count} Invalid NPM Import${
+      count === 1 ? "" : "s"
+    }`;
+    this.statusBarItem.tooltip = `${count} Import${
+      count === 1 ? "" : "s"
+    } not found on npm registry. Click to validate again.`;
+    this.statusBarItem.backgroundColor = new vscode.ThemeColor(
+      "statusBarItem.warningBackground"
+    );
   }
 
   // Set status to error
   setError(): void {
     this.statusBarItem.text = "$(error) NPM Import Error";
-    this.statusBarItem.tooltip = "Error validating NPM Imports. Click to try again.";
-    this.statusBarItem.backgroundColor = new vscode.ThemeColor("statusBarItem.errorBackground");
+    this.statusBarItem.tooltip =
+      "Error validating NPM Imports. Click to try again.";
+    this.statusBarItem.backgroundColor = new vscode.ThemeColor(
+      "statusBarItem.errorBackground"
+    );
   }
 
   // Set status to processing workspace
   setProcessingWorkspace(processed: number, total: number): void {
-    const percent = Math.min(100, Math.round((processed / Math.max(total, 1)) * 100));
+    const percent = Math.min(
+      100,
+      Math.round((processed / Math.max(total, 1)) * 100)
+    );
     this.statusBarItem.text = `$(sync~spin) Processing: ${percent}%`;
     this.statusBarItem.tooltip = `Processing ${processed} of ${total} files`;
     this.statusBarItem.backgroundColor = undefined;

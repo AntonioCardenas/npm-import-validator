@@ -50,14 +50,14 @@ export class PackageInfoProvider {
     }
 
     // Load project packages
-    this.loadProjectPackages();
+    this._loadProjectPackages();
 
     // Watch for changes to package.json files
-    this.watchPackageJsonFiles();
+    this._watchPackageJsonFiles();
   }
 
   // Watch for changes to package.json files
-  private watchPackageJsonFiles(): void {
+  private _watchPackageJsonFiles(): void {
     if (this.packageJsonWatcher) {
       this.packageJsonWatcher.dispose();
     }
@@ -66,20 +66,20 @@ export class PackageInfoProvider {
       vscode.workspace.createFileSystemWatcher("**/package.json");
 
     this.packageJsonWatcher.onDidChange(() => {
-      this.loadProjectPackages();
+      this._loadProjectPackages();
     });
 
     this.packageJsonWatcher.onDidCreate(() => {
-      this.loadProjectPackages();
+      this._loadProjectPackages();
     });
 
     this.packageJsonWatcher.onDidDelete(() => {
-      this.loadProjectPackages();
+      this._loadProjectPackages();
     });
   }
 
   // Load packages from all package.json files in the workspace
-  private loadProjectPackages(): void {
+  private _loadProjectPackages(): void {
     this.projectPackages.clear();
 
     if (!vscode.workspace.workspaceFolders) {
@@ -97,10 +97,10 @@ export class PackageInfoProvider {
             const packageJson = JSON.parse(fileContent) as ProjectPackage;
 
             // Add dependencies to the map
-            this.addDependenciesToMap(packageJson.dependencies);
-            this.addDependenciesToMap(packageJson.devDependencies);
-            this.addDependenciesToMap(packageJson.peerDependencies);
-            this.addDependenciesToMap(packageJson.optionalDependencies);
+            this._addDependenciesToMap(packageJson.dependencies);
+            this._addDependenciesToMap(packageJson.devDependencies);
+            this._addDependenciesToMap(packageJson.peerDependencies);
+            this._addDependenciesToMap(packageJson.optionalDependencies);
 
             console.log(
               `Loaded ${this.projectPackages.size} packages from ${fileUri.fsPath}`
@@ -116,7 +116,7 @@ export class PackageInfoProvider {
   }
 
   // Add dependencies to the map
-  private addDependenciesToMap(dependencies?: Record<string, string>): void {
+  private _addDependenciesToMap(dependencies?: Record<string, string>): void {
     if (!dependencies) {
       return;
     }
@@ -146,8 +146,8 @@ export class PackageInfoProvider {
 
     // Check cache first
     if (this.packageInfoCache.has(packageName)) {
-      const cached = this.packageInfoCache.get(packageName)!;
-      if (now - cached.timestamp < cacheTimeout * 1000) {
+      const cached = this.packageInfoCache.get(packageName);
+      if (cached && now - cached.timestamp < cacheTimeout * 1000) {
         return cached.info;
       }
     }
@@ -193,7 +193,7 @@ export class PackageInfoProvider {
         info: minimalInfo,
         timestamp: now,
       });
-      this.saveCache();
+      this._saveCache();
 
       return minimalInfo;
     }
@@ -207,7 +207,7 @@ export class PackageInfoProvider {
         info: packageInfo,
         timestamp: now,
       });
-      this.saveCache();
+      this._saveCache();
 
       return packageInfo;
     } catch (error) {
@@ -215,7 +215,7 @@ export class PackageInfoProvider {
 
       // Cache the negative result to avoid repeated failed requests
       this.packageInfoCache.set(packageName, { info: null, timestamp: now });
-      this.saveCache();
+      this._saveCache();
 
       return null;
     }
@@ -267,8 +267,8 @@ export class PackageInfoProvider {
             `https://api.npmjs.org/downloads/point/last-month/${packageName}`,
             {
               headers: {
-                Accept: "application/json",
-                "User-Agent": "npm-import-validator-vscode-extension",
+                accept: "application/json",
+                ["User-Agent"]: "npm-import-validator-vscode-extension",
               },
             }
           );
@@ -298,7 +298,7 @@ export class PackageInfoProvider {
 
         const packageInfo: PackageInfo = {
           name: data.name,
-          version: data.distTags?.latest || data.version,
+          version: data.distTags ? data.distTags.latest : data.version,
           description: data.description || "",
           homepage: data.homepage || "",
           repository: data.repository?.url || "",
@@ -344,7 +344,7 @@ export class PackageInfoProvider {
   }
 
   // Save cache to storage
-  private saveCache(): void {
+  private _saveCache(): void {
     const cacheObject = Object.fromEntries(this.packageInfoCache);
     this.storage.update("npmPackageInfoCache", cacheObject);
   }

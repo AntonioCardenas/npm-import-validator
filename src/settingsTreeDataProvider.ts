@@ -21,6 +21,8 @@ export class SettingsTreeDataProvider
     SettingsTreeItem | undefined | null | void
   > = this._onDidChangeTreeData.event;
 
+  constructor() {}
+
   refresh(): void {
     this._onDidChangeTreeData.fire();
   }
@@ -132,10 +134,6 @@ export class SettingsTreeDataProvider
       return [
         new SettingsTreeItem(
           `Max Files: ${maxFiles}`,
-          vscode.TreeItemCollapsibleState.None
-        ),
-        new SettingsTreeItem(
-          `Batch Size: ${batchSize}`,
           vscode.TreeItemCollapsibleState.None
         ),
         new SettingsTreeItem(

@@ -8,7 +8,7 @@ export class CommandManager {
   constructor(
     private validator: ImportValidator,
     private diagnosticsManager: DiagnosticsManager,
-    private packageInfoProvider: PackageInfoProvider,
+    private packageInfoProvider: PackageInfoProvider
   ) {}
 
   // Show package info in a webview
@@ -30,7 +30,9 @@ export class CommandManager {
       const results = await this.validator.validateDocument(document);
 
       // Find the import at the cursor position
-      const importAtCursor = results.find((result) => result.range.contains(position));
+      const importAtCursor = results.find((result) =>
+        result.range.contains(position)
+      );
 
       if (importAtCursor) {
         packageName = importAtCursor.importName;
@@ -38,7 +40,9 @@ export class CommandManager {
         // If no import at cursor, show a quick pick to select a package
         const packageNames = results.map((result) => result.importName);
         if (packageNames.length === 0) {
-          vscode.window.showInformationMessage("No npm packages found in this file");
+          vscode.window.showInformationMessage(
+            "No npm packages found in this file"
+          );
           return;
         }
 
@@ -53,23 +57,34 @@ export class CommandManager {
     }
 
     // Get package info
-    const packageInfo = await this.packageInfoProvider.getPackageInfo(packageName);
+    const packageInfo = await this.packageInfoProvider.getPackageInfo(
+      packageName
+    );
 
     if (!packageInfo) {
-      vscode.window.showInformationMessage(`Package '${packageName}' not found on npm registry`);
+      vscode.window.showInformationMessage(
+        `Package '${packageName}' not found on npm registry`
+      );
       return;
     }
 
     // Create and show webview
-    const panel = vscode.window.createWebviewPanel("npmPackageInfo", `NPM: ${packageName}`, vscode.ViewColumn.Beside, {
-      enableScripts: true,
-      retainContextWhenHidden: true,
-    });
+    const panel = vscode.window.createWebviewPanel(
+      "npmPackageInfo",
+      `NPM: ${packageName}`,
+      vscode.ViewColumn.Beside,
+      {
+        enableScripts: true,
+        retainContextWhenHidden: true,
+      }
+    );
 
     // Format keywords
     const keywordsHtml =
       packageInfo.keywords.length > 0
-        ? `<div class="keywords">${packageInfo.keywords.map((k) => `<span class="keyword">${k}</span>`).join(" ")}</div>`
+        ? `<div class="keywords">${packageInfo.keywords
+            .map((k) => `<span class="keyword">${k}</span>`)
+            .join(" ")}</div>`
         : "";
 
     // Format repository URL
@@ -195,7 +210,9 @@ export class CommandManager {
         <div class="header">
           <div class="logo">npm</div>
           <div class="title">
-            <h1>${packageInfo.name} <span class="version">v${packageInfo.version}</span></h1>
+            <h1>${packageInfo.name} <span class="version">v${
+      packageInfo.version
+    }</span></h1>
           </div>
         </div>
         
@@ -227,9 +244,17 @@ export class CommandManager {
         </div>
         
         <div class="links">
-          <a href="https://www.npmjs.com/package/${packageInfo.name}" target="_blank">NPM Page</a>
-          ${packageInfo.homepage ? `<a href="${packageInfo.homepage}" target="_blank">Homepage</a>` : ""}
-          ${repoUrl ? `<a href="${repoUrl}" target="_blank">Repository</a>` : ""}
+          <a href="https://www.npmjs.com/package/${
+            packageInfo.name
+          }" target="_blank">NPM Page</a>
+          ${
+            packageInfo.homepage
+              ? `<a href="${packageInfo.homepage}" target="_blank">Homepage</a>`
+              : ""
+          }
+          ${
+            repoUrl ? `<a href="${repoUrl}" target="_blank">Repository</a>` : ""
+          }
         </div>
         
         <script>
