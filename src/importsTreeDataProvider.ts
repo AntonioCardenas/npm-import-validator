@@ -8,7 +8,8 @@ export class ImportsTreeItem extends vscode.TreeItem {
     public readonly collapsibleState: vscode.TreeItemCollapsibleState,
     public readonly importResult?: ImportResult,
     public readonly contextValue?: string,
-    public readonly command?: vscode.Command
+    public readonly command?: vscode.Command,
+    public readonly unusedDependency?: { name: string; version: string }
   ) {
     super(label, collapsibleState);
   }
@@ -26,6 +27,8 @@ export class ImportsTreeDataProvider
 
   // Store the root items for potential use in reveal()
   private rootItems: ImportsTreeItem[] = [];
+  private unusedDependencies: Map<string, string> = new Map();
+  private unusedDependenciesLastUpdated = 0;
 
   constructor(
     private validator: ImportValidator,
@@ -53,7 +56,7 @@ export class ImportsTreeDataProvider
 
   async getChildren(element?: ImportsTreeItem): Promise<ImportsTreeItem[]> {
     if (!element) {
-      // Root level - show current file, workspace, and stats
+      // Root level - show current file, workspace, unused dependencies, and stats
       const items: ImportsTreeItem[] = [];
 
       // Current file
@@ -76,6 +79,16 @@ export class ImportsTreeDataProvider
           vscode.TreeItemCollapsibleState.Collapsed,
           undefined,
           "workspace"
+        )
+      );
+
+      // Unused Dependencies
+      items.push(
+        new ImportsTreeItem(
+          "Unused Dependencies",
+          vscode.TreeItemCollapsibleState.Collapsed,
+          undefined,
+          "unusedDependencies"
         )
       );
 
@@ -181,6 +194,95 @@ export class ImportsTreeDataProvider
             "invalidImports"
           )
         );
+      }
+
+      return items;
+    } else if (element.contextValue === "unusedDependencies") {
+      // Check if we need to refresh the unused dependencies
+      const now = Date.now();
+      if (now - this.unusedDependenciesLastUpdated > 3600000) {
+        // 1 hour cache
+        // Show a loading item while we fetch the unused dependencies
+        vscode.window.withProgress(
+          {
+            location: vscode.ProgressLocation.Notification,
+            title: "Finding unused dependencies...",
+            cancellable: false,
+          },
+          async () => {
+            this.unusedDependencies =
+              await this.fileProcessor.findUnusedDependencies();
+            this.unusedDependenciesLastUpdated = now;
+            this.refresh();
+          }
+        );
+
+        return [
+          new ImportsTreeItem(
+            "Loading...",
+            vscode.TreeItemCollapsibleState.None
+          ),
+        ];
+      }
+
+      // If we already have the unused dependencies, show them
+      if (this.unusedDependencies.size === 0) {
+        return [
+          new ImportsTreeItem(
+            "No unused dependencies found",
+            vscode.TreeItemCollapsibleState.None
+          ),
+          new ImportsTreeItem(
+            "Refresh",
+            vscode.TreeItemCollapsibleState.None,
+            undefined,
+            "refreshUnusedDependencies",
+            {
+              command: "npm-import-validator.findUnusedDependencies",
+              title: "Find Unused Dependencies",
+              arguments: [],
+            }
+          ),
+        ];
+      }
+
+      const items: ImportsTreeItem[] = [];
+
+      // Add a refresh button
+      items.push(
+        new ImportsTreeItem(
+          "Refresh",
+          vscode.TreeItemCollapsibleState.None,
+          undefined,
+          "refreshUnusedDependencies",
+          {
+            command: "npm-import-validator.findUnusedDependencies",
+            title: "Find Unused Dependencies",
+            arguments: [],
+          }
+        )
+      );
+
+      // Add the unused dependencies
+      for (const [name, version] of this.unusedDependencies.entries()) {
+        const item = new ImportsTreeItem(
+          name,
+          vscode.TreeItemCollapsibleState.None,
+          undefined,
+          "unusedDependency",
+          {
+            command: "npm-import-validator.openNpmPage",
+            title: "Open NPM Page",
+            arguments: [name],
+          },
+          { name, version }
+        );
+
+        item.description = version;
+        item.tooltip = `${name}@${version} - Not imported in any file`;
+        item.iconPath = new vscode.ThemeIcon("warning");
+
+        items.push(item);
       }
 
       return items;
@@ -451,6 +553,10 @@ export class ImportsTreeDataProvider
           vscode.TreeItemCollapsibleState.None
         ),
         new ImportsTreeItem(
+          `Unchanged Files: ${stats.unchangedFiles}`,
+          vscode.TreeItemCollapsibleState.None
+        ),
+        new ImportsTreeItem(
           `Total Imports: ${stats.totalImports}`,
           vscode.TreeItemCollapsibleState.None
         ),
@@ -512,9 +618,20 @@ export class ImportsTreeDataProvider
           `Skipped Files: ${stats.skippedFiles}`,
           vscode.TreeItemCollapsibleState.None
         ),
+        new ImportsTreeItem(
+          `Last Updated: ${stats.lastUpdated.toLocaleString()}`,
+          vscode.TreeItemCollapsibleState.None
+        ),
       ];
     }
 
     return [];
+  }
+
+  // Update unused dependencies
+  async updateUnusedDependencies(): Promise<void> {
+    this.unusedDependencies = await this.fileProcessor.findUnusedDependencies();
+    this.unusedDependenciesLastUpdated = Date.now();
+    this.refresh();
   }
 }

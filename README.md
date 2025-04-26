@@ -10,14 +10,11 @@ A VS Code extension that validates imported packages against the npm registry.
 - **Tree View**: Browse all imports in your current file and workspace
 - **Performance Optimized**: Efficiently handles large projects with parallel processing
 - **Support for CommonJS**: Validates both ES6 imports and CommonJS require statements
-
-![Feature Overview](https://raw.githubusercontent.com/antoniocardenas/npm-import-validator/main/resources/vscode-icon.png)
+- **Gitignore Integration**: Automatically respects your .gitignore file when scanning the workspace
 
 ## Usage
 
 The extension automatically validates imports when you open or save a JavaScript or TypeScript file. Invalid imports (packages not found on npm registry) are highlighted with squiggly underlines.
-
-By clicking on Workspace > Scan Workspace, you can easily see if the imported packages exist in npm.
 
 ### Commands
 
@@ -28,6 +25,7 @@ By clicking on Workspace > Scan Workspace, you can easily see if the imported pa
 - **Show NPM Package Info**: View detailed information about a package
 - **Open NPM Package Page**: Open the npm registry page for a package
 - **Show NPM Import Validator Statistics**: View detailed validation statistics
+- **Find Unused Dependencies**: Identify dependencies in package.json that aren't imported in your code
 
 ### Code Lens
 
@@ -55,6 +53,7 @@ The extension adds a view to the activity bar where you can browse:
 - Valid and invalid imports
 - Workspace import statistics
 - Import types (ES6 vs CommonJS)
+- Unused dependencies in your project
 
 ## Extension Settings
 
@@ -79,6 +78,7 @@ The extension is designed to handle large projects efficiently:
 - **Caching**: Import validation results are cached to prevent duplicate checks
 - **File Limits**: You can configure the maximum number of files to process
 - **Exclusion Patterns**: Exclude specific files or directories from validation
+- **Gitignore Integration**: Automatically respects your .gitignore file
 - **Buffering**: Prevents duplicate checks of the same import statements
 
 ## Requirements
@@ -116,16 +116,19 @@ The extension is designed to handle large projects efficiently:
 - Performance optimizations for large projects
 - Configurable file processing limits
 - Detailed statistics view
-- Added Vscode Icon
 
-### 1.1.1
+### 1.1.0
 
-- Added framework import detection for popular frameworks like React, Angular, and Vue
-- Introduced configurable severity levels for framework-specific import issues
-- Improved diagnostics handling for framework packages, including better error messages and suggestions
-- Enhanced performance for projects using framework-specific folder structures
-- Updated settings to include `npmImportValidator.frameworkDetection` for enabling/disabling framework import detection
-- Bug fixes and minor improvements
+- Added "Find Unused Dependencies" feature
+- Improved UI feedback with progress indicators
+- Fixed file processing metrics
+- Limited framework imports scope to Node.js compatible frameworks
+
+### 1.1.3
+
+- Added .gitignore integration for workspace scanning
+- Fixed issues with file processing metrics
+- Improved status bar indicators
 
 ## Contributing
 

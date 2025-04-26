@@ -99,6 +99,14 @@ export class StatisticsTreeDataProvider
           `Skipped Files: ${stats.skippedFiles}`,
           vscode.TreeItemCollapsibleState.None
         ),
+        new StatisticsTreeItem(
+          `Unchanged Files: ${stats.unchangedFiles}`,
+          vscode.TreeItemCollapsibleState.None
+        ),
+        new StatisticsTreeItem(
+          `Progress: ${stats.processingPercentage}%`,
+          vscode.TreeItemCollapsibleState.None
+        ),
       ];
     } else if (element.contextValue === "importStats") {
       // Import statistics
@@ -145,6 +153,10 @@ export class StatisticsTreeDataProvider
       return [
         new StatisticsTreeItem(
           `Processing Time: ${Math.round(stats.processingTime)}ms`,
+          vscode.TreeItemCollapsibleState.None
+        ),
+        new StatisticsTreeItem(
+          `Last Updated: ${stats.lastUpdated.toLocaleString()}`,
           vscode.TreeItemCollapsibleState.None
         ),
         new StatisticsTreeItem(
