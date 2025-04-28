@@ -9,40 +9,44 @@ export const EXTENSION_ID = "npm-import-validator";
 
 // Command IDs
 export const COMMANDS = {
-  VALIDATE_IMPORTS: `${EXTENSION_ID}.validateImports`,
-  VALIDATE_WORKSPACE: `${EXTENSION_ID}.validateWorkspace`,
-  CANCEL_VALIDATION: `${EXTENSION_ID}.cancelValidation`,
-  CLEAR_CACHE: `${EXTENSION_ID}.clearCache`,
-  SHOW_PACKAGE_INFO: `${EXTENSION_ID}.showPackageInfo`,
-  OPEN_NPM_PAGE: `${EXTENSION_ID}.openNpmPage`,
-  SHOW_ALL_IMPORTS: `${EXTENSION_ID}.showAllImports`,
-  SHOW_STATS: `${EXTENSION_ID}.showStats`,
-  FIND_UNUSED_DEPENDENCIES: `${EXTENSION_ID}.findUnusedDependencies`,
-  SHOW_ERROR_FILES: `${EXTENSION_ID}.showErrorFiles`,
+  validateImports: `${EXTENSION_ID}.validateImports`,
+  validateWorkspace: `${EXTENSION_ID}.validateWorkspace`,
+  cancelValidation: `${EXTENSION_ID}.cancelValidation`,
+  clearCache: `${EXTENSION_ID}.clearCache`,
+  showPackageInfo: `${EXTENSION_ID}.showPackageInfo`,
+  openNpmPage: `${EXTENSION_ID}.openNpmPage`,
+  showAllImports: `${EXTENSION_ID}.showAllImports`,
+  showStats: `${EXTENSION_ID}.showStats`,
+  findUnusedDependencies: `${EXTENSION_ID}.findUnusedDependencies`,
+  showErrorFiles: `${EXTENSION_ID}.showErrorFiles`,
+  scanWorkspaceFiles: "extension.scanWorkspaceFiles",
+  processBatchedFiles: "extension.processBatchedFiles",
+  analyzeWorkspace: "extension.analyzeWorkspace",
+  clearWorkspaceCache: "extension.clearWorkspaceCache",
 };
 
 // View IDs
 export const VIEWS = {
-  IMPORTS: "npmImports",
-  STATISTICS: "npmStatistics",
-  SETTINGS: "npmSettings",
+  imports: "npmImports",
+  statistics: "npmStatistics",
+  settings: "npmSettings",
 };
 
 // Storage keys
 export const STORAGE_KEYS = {
-  PACKAGE_INFO_CACHE: "npmPackageInfoCache",
-  STATS: "npmImportValidatorStats",
-  SETTINGS: "npmImportValidatorSettings",
+  packageInfoCache: "npmPackageInfoCache",
+  stats: "npmImportValidatorStats",
+  settings: "npmImportValidatorSettings",
 };
 
 // Default configuration values
 export const DEFAULT_CONFIG = {
-  CACHE_TIMEOUT: 86400, // 24 hours in seconds
-  MAX_FILES: 1000,
-  BATCH_SIZE: 20,
-  PROCESSING_TIMEOUT: 10000, // 10 seconds
-  FETCH_RETRY_COUNT: 3,
-  FETCH_RETRY_DELAY: 1000, // 1 second
+  cacheTimeout: 86400, // 24 hours in seconds
+  maxFiles: 1000,
+  batchSize: 20,
+  processingTimeout: 10000, // 10 seconds
+  fetchRetryCount: 3,
+  fetchRetryDelay: 1000, // 1 second
 };
 
 // File types that can be processed
@@ -160,34 +164,6 @@ export const COMMON_PATH_ALIASES = [
   "styles/",
   "config/",
   "constants/",
-];
-
-// Common dev tools that might not be directly imported
-export const COMMON_DEV_TOOLS = [
-  "typescript",
-  "eslint",
-  "prettier",
-  "jest",
-  "mocha",
-  "chai",
-  "webpack",
-  "babel",
-  "rollup",
-  "vite",
-  "esbuild",
-  "postcss",
-  "tailwindcss",
-  "autoprefixer",
-  "nodemon",
-  "ts-node",
-  "husky",
-  "lint-staged",
-  "rimraf",
-  "concurrently",
-  "cross-env",
-  "dotenv",
-  "clsx",
-  "classnames",
 ];
 
 // Framework prefixes

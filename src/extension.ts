@@ -10,6 +10,9 @@ import { FileProcessor } from "./fileProcessor";
 import { ensureActivation } from "./activation";
 import { StatisticsTreeDataProvider } from "./statisticsTreeDataProvider";
 import { SettingsTreeDataProvider } from "./settingsTreeDataProvider";
+import { scanWorkspaceFiles, processBatchedFiles } from "./example";
+import { clearFileCache } from "./utils/file-utils";
+import type { ProcessingStats } from "./fileProcessor";
 
 /**
  * Extension activation
@@ -99,6 +102,25 @@ export async function activate(context: vscode.ExtensionContext) {
       }
     },
   });
+
+  // Register commands
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "extension.scanWorkspaceFiles",
+      scanWorkspaceFiles
+    ),
+    vscode.commands.registerCommand(
+      "extension.processBatchedFiles",
+      processBatchedFiles
+    ),
+    vscode.commands.registerCommand("extension.clearWorkspaceCache", () => {
+      // Fix: Use fileProcessor.clearCaches() instead of fileProcessor.clearFileCache()
+      fileProcessor.clearCaches();
+      // Also clear the file-utils cache for completeness
+      clearFileCache();
+      vscode.window.showInformationMessage("Workspace file cache cleared");
+    })
+  );
 }
 
 /**
@@ -278,6 +300,7 @@ function registerCommands(
       validator.clearCaches();
       packageInfoProvider.clearCache();
       fileProcessor.clearCaches();
+      clearFileCache(); // Also clear the file-utils cache
       vscode.window.showInformationMessage(
         "NPM Import Validator cache cleared."
       );
@@ -449,7 +472,7 @@ function showErrorFilesDetails(errorFiles: string[]): void {
 
   // Handle messages from the webview
   panel.webview.onDidReceiveMessage(
-    (message) => {
+    (message: { command: string; filePath: string }) => {
       if (message.command === "openFile") {
         const filePath = message.filePath;
         vscode.workspace.openTextDocument(filePath).then((doc) => {
@@ -465,23 +488,7 @@ function showErrorFilesDetails(errorFiles: string[]): void {
 /**
  * Shows statistics in a webview
  */
-interface Statistics {
-  totalFiles: number;
-  processedFiles: number;
-  skippedFiles: number;
-  unchangedFiles: number;
-  totalImports: number;
-  validImports: number;
-  invalidImports: number;
-  projectImports: number;
-  frameworkImports: number;
-  errorFiles?: string[];
-  processingPercentage: number;
-  processingTime: number;
-  lastUpdated: Date;
-}
-
-function showStatisticsWebview(stats: Statistics): void {
+function showStatisticsWebview(stats: ProcessingStats): void {
   const panel = vscode.window.createWebviewPanel(
     "npmImportStats",
     "NPM Import Validator Stats",
@@ -682,7 +689,7 @@ function showStatisticsWebview(stats: Statistics): void {
 
   // Handle messages from the webview
   panel.webview.onDidReceiveMessage(
-    (message) => {
+    (message: { command: string }) => {
       if (message.command === "showErrorFiles") {
         vscode.commands.executeCommand("npm-import-validator.showErrorFiles");
       }

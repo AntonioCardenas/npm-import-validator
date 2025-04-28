@@ -9,7 +9,19 @@ import type { StatusBarManager } from "./statusBarManager";
 interface ProjectTypeInfo {
   type: "react" | "next" | "angular" | "vue" | "node" | "unknown";
   mainSrcDir: string;
-  packageJson: Record<string, unknown> | null;
+  packageJson: PackageJsonStructure | null;
+}
+
+// Add this interface to define the package.json structure
+interface PackageJsonStructure {
+  name?: string;
+  version?: string;
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
+  optionalDependencies?: Record<string, string>;
+  type?: string;
+  scripts?: Record<string, string>;
 }
 
 export interface ProcessingStats {
@@ -31,6 +43,22 @@ export interface ProcessingStats {
 interface ProcessingOptions {
   forceReprocess?: boolean;
   showProgress?: boolean;
+}
+
+// Define storage keys
+const STORAGE_KEYS = {
+  stats: "npmImportValidatorStats",
+};
+
+/**
+ * Checks if a file should be processed based on its extension.
+ * @param filePath The path to the file.
+ * @returns True if the file should be processed, false otherwise.
+ */
+function shouldProcessFile(filePath: string): boolean {
+  const supportedExtensions = [".js", ".jsx", ".ts", ".tsx"];
+  const fileExtension = path.extname(filePath);
+  return supportedExtensions.includes(fileExtension);
 }
 
 export class FileProcessor {
@@ -90,7 +118,7 @@ export class FileProcessor {
    */
   private loadSavedStats(): void {
     const savedStats = this.context.globalState.get<ProcessingStats>(
-      "npmImportValidatorStats"
+      STORAGE_KEYS.stats
     );
     if (savedStats) {
       this.stats = savedStats;
@@ -547,7 +575,8 @@ export class FileProcessor {
   private async doProcessWorkspace(
     progress?: vscode.Progress<{ message?: string; increment?: number }>
   ): Promise<ProcessingStats> {
-    const startTime = Date.now(); // Define startTime at the beginning of the method
+    // Add startTime at the beginning of the method
+    const startTime: number = Date.now();
 
     // Count eligible files first
     console.log("Starting to count eligible files");
@@ -795,7 +824,8 @@ export class FileProcessor {
       }
     }
 
-    return true;
+    // Use the utility function for extension checking
+    return shouldProcessFile(filePath);
   }
 
   /**
@@ -916,7 +946,7 @@ export class FileProcessor {
    * Saves stats to storage
    */
   private saveStats(): void {
-    this.context.globalState.update("npmImportValidatorStats", this.stats);
+    this.context.globalState.update(STORAGE_KEYS.stats, this.stats);
   }
 
   /**

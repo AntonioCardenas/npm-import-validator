@@ -145,3 +145,90 @@ export async function safeReadFile(
     return null;
   }
 }
+
+/**
+ * Groups an array by a key function
+ * @param array The array to group
+ * @param keyFn The function to get the key for each item
+ */
+export function groupBy<T, K extends string | number | symbol>(
+  array: T[],
+  keyFn: (item: T) => K
+): Record<K, T[]> {
+  return array.reduce((result, item) => {
+    const key = keyFn(item);
+    if (!result[key]) {
+      result[key] = [];
+    }
+    result[key].push(item);
+    return result;
+  }, {} as Record<K, T[]>);
+}
+
+/**
+ * Measures the execution time of a function
+ * @param fn The function to measure
+ * @param label Optional label for logging
+ */
+export async function measureExecutionTime<T>(
+  fn: () => Promise<T>,
+  label = "Execution time"
+): Promise<T> {
+  const startTime = performance.now();
+  try {
+    return await fn();
+  } finally {
+    const endTime = performance.now();
+    console.log(`${label}: ${(endTime - startTime).toFixed(2)}ms`);
+  }
+}
+
+/**
+ * Retries a function with exponential backoff
+ * @param fn The function to retry
+ * @param options Retry options
+ */
+export async function retry<T>(
+  fn: () => Promise<T>,
+  options: {
+    maxRetries?: number;
+    initialDelay?: number;
+    maxDelay?: number;
+    backoffFactor?: number;
+    retryCondition?: (error: unknown) => boolean;
+  } = {}
+): Promise<T> {
+  const {
+    maxRetries = 3,
+    initialDelay = 1000,
+    maxDelay = 10000,
+    backoffFactor = 2,
+    retryCondition = () => true,
+  } = options;
+
+  let lastError: unknown;
+  let delay = initialDelay;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+
+      if (attempt >= maxRetries || !retryCondition(error)) {
+        throw error;
+      }
+
+      console.log(
+        `Retry attempt ${attempt + 1}/${maxRetries} after ${delay}ms`
+      );
+      await new Promise((resolve) => setTimeout(resolve, delay));
+
+      // Increase delay for next attempt with exponential backoff
+      delay = Math.min(delay * backoffFactor, maxDelay);
+    }
+  }
+
+  // This should never be reached due to the throw in the loop
+  throw lastError;
+}
